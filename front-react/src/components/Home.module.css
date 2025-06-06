@@ -1,0 +1,95 @@
+.container {
+    font-family: 'Segoe UI', sans-serif;
+    padding: 2rem;
+    background: #f4f6f9;
+    min-height: 100vh;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  
+  .title {
+    font-size: 2rem;
+    color: #343a40;
+  }
+  
+  .userInfo {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .userInfo span {
+    font-weight: bold;
+    color: #007bff;
+  }
+  
+  .userInfo button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .cardGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  }
+  
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    color: #007bff;
+  }
+  
+  .card p {
+    color: #6c757d;
+  }
+  
+
+  .about {
+    margin-top: 3rem;
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    color: #343a40;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .about h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+    color: #007bff;
+  }
+  
+  .about p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  

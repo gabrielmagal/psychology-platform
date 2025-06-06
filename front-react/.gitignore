@@ -1,0 +1,50 @@
+# Dependências
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Build output
+dist/
+build/
+
+# Configuração do ambiente
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Diretórios de logs
+logs/
+*.log
+npm-debug.log*
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+
+# Cache
+.cache/
+coverage/
+.eslintcache
+
+# Storybook
+out/
+storybook-static/
+
+# Test
+jest-test-results.json
+
+# Others (caso use Git hooks ou Husky)
+.husky/_/

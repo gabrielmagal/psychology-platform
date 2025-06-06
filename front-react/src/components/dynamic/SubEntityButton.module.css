@@ -1,0 +1,15 @@
+.subEntityBtn {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+  background-color: #e0f7fa;
+  border: 1px solid #26c6da;
+  border-radius: 4px;
+  color: #006064;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.subEntityBtn:hover {
+  background-color: #b2ebf2;
+}

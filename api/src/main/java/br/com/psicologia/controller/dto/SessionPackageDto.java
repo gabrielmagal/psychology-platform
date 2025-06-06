@@ -1,0 +1,55 @@
+package br.com.psicologia.controller.dto;
+
+import core.controller.dto.BaseDto;
+import core.repository.model.interfaces.*;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class SessionPackageDto extends BaseDto {
+
+    @ILabel("Paciente")
+    @IShowInForm
+    @IShowInTable
+    @IShowField("name")
+    @ManyToOne(optional = false)
+    private UserDto patient;
+
+    @ILabel("Psicologo")
+    @IShowInForm
+    @IShowInTable
+    @IShowField("name")
+    @ManyToOne(optional = false)
+    private UserDto psychologist;
+
+    @ILabel("Sessões")
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    @IManageAsSubEntity(label = "Sessões", parentField = "sessionPackage")
+    private List<SessionDto> session = new ArrayList<>();
+
+    @ILabel("Pagamento")
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    @IManageAsSubEntity(label = "Pagamentos", parentField = "sessionPackage")
+    private List<PaymentDto> payment = new ArrayList<>();
+
+    @ILabel("Título")
+    @IShowInForm
+    @IShowInTable
+    private String packageTitle;
+
+    @ILabel("Total de Sessões")
+    @IShowInForm
+    @IShowInTable
+    private Integer totalSessions;
+}
