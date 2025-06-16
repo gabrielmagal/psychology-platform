@@ -1,5 +1,6 @@
 package br.com.psicologia.repository.model;
 
+import br.com.psicologia.interceptor.AuditListener;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -13,11 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "session_care")
+@Table(name = "session_info")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditListener.class)
 public class SessionEntity extends BaseEntity {
 
     @Column(name = "date_session")
@@ -29,17 +31,8 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "summary")
     private String summary;
 
-    @Lob
-    @Column(name = "private_notes")
+    @Column(name = "private_notes", columnDefinition = "TEXT")
     private String privateNotes;
-
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "patient_id")
-    private UserEntity patient;
-
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "psychologist_id")
-    private UserEntity psychologist;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<AnnotationEntity> annotation = new ArrayList<>();

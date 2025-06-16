@@ -1,24 +1,24 @@
 package br.com.psicologia.controller;
 
+import br.com.psicologia.context.session.SessionContext;
 import br.com.psicologia.controller.dto.SessionDto;
 import br.com.psicologia.mapper.SessionMapper;
 import br.com.psicologia.repository.model.SessionEntity;
-import br.com.psicologia.service.SessionService;
-import core.controller.AbstractBaseController;
+import core.controller.AbstractBaseContextController;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 
 import java.util.Map;
 
 @Path("/session")
-public class SessionController extends AbstractBaseController<SessionDto, SessionEntity> {
-    public SessionController(SessionService service, SessionMapper mapper) {
-        super(service, mapper);
+public class SessionController extends AbstractBaseContextController<SessionDto, SessionEntity> {
+    public SessionController(SessionContext context, SessionMapper mapper) {
+        super(context, mapper);
     }
 
     @GET
     @Path("/entity-description")
     public Map<String, Object> entityDescription() {
-        return service.describeEntity(SessionDto.class);
+        return describeEntity(SessionDto.class);
     }
 }

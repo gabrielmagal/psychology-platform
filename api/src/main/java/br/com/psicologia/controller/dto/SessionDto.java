@@ -1,7 +1,7 @@
 package br.com.psicologia.controller.dto;
 
 import core.controller.dto.BaseDto;
-import core.repository.model.interfaces.*;
+import core.notes.*;
 import jakarta.persistence.ManyToOne;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -37,20 +37,6 @@ public class SessionDto extends BaseDto {
     @ILabel("Notas")
     @IShowInForm
     private String privateNotes;
-
-    @ILabel("Paciente")
-    @IShowInForm
-    @IShowInTable
-    @IShowField("name")
-    @ManyToOne(optional = false)
-    private UserDto patient;
-
-    @ILabel("Psicólogo")
-    @IShowInForm
-    @IShowInTable
-    @IShowField("name")
-    @ManyToOne(optional = false)
-    private UserDto psychologist;
 
     @ILabel("Presença Confirmada")
     @IShowInForm

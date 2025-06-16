@@ -1,24 +1,24 @@
 package br.com.psicologia.controller;
 
+import br.com.psicologia.context.annotation.AnnotationContext;
 import br.com.psicologia.controller.dto.AnnotationDto;
 import br.com.psicologia.mapper.AnnotationMapper;
 import br.com.psicologia.repository.model.AnnotationEntity;
-import br.com.psicologia.service.AnnotationService;
-import core.controller.AbstractBaseController;
+import core.controller.AbstractBaseContextController;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 
 import java.util.Map;
 
 @Path("/annotation")
-public class AnnotationController extends AbstractBaseController<AnnotationDto, AnnotationEntity> {
-    public AnnotationController(AnnotationService service, AnnotationMapper mapper) {
-        super(service, mapper);
+public class AnnotationController extends AbstractBaseContextController<AnnotationDto, AnnotationEntity> {
+    public AnnotationController(AnnotationContext context, AnnotationMapper mapper) {
+        super(context, mapper);
     }
 
     @GET
     @Path("/entity-description")
     public Map<String, Object> entityDescription() {
-        return service.describeEntity(AnnotationDto.class);
+        return describeEntity(AnnotationDto.class);
     }
 }

@@ -1,6 +1,7 @@
 package br.com.psicologia.repository.model;
 
-import br.com.psicologia.repository.model.enums.PaymentMethod;
+import br.com.psicologia.enums.PaymentMethod;
+import br.com.psicologia.interceptor.AuditListener;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "payment")
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditListener.class)
 public class PaymentEntity extends BaseEntity {
 
     @Column(name = "amount", nullable = false)
@@ -35,8 +38,7 @@ public class PaymentEntity extends BaseEntity {
     @Column(name = "observation")
     private String observation;
 
-    @Lob
-    @Column(name = "receipt")
+    @Column(name = "receipt", columnDefinition = "TEXT")
     private String receipt;
 
     @Column(name = "receipt_name", nullable = false)
@@ -48,4 +50,16 @@ public class PaymentEntity extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "session_package_id")
     private SessionPackageEntity sessionPackage;
+
+    public PaymentEntity(UUID id, BigDecimal amount, LocalDate paymentDate, PaymentMethod paymentMethod, boolean paid,
+                         String observation, String receiptName, String receiptType) {
+        setId(id);
+        this.amount = amount;
+        this.paymentDate = paymentDate;
+        this.paymentMethod = paymentMethod;
+        this.paid = paid;
+        this.observation = observation;
+        this.receiptName = receiptName;
+        this.receiptType = receiptType;
+    }
 }

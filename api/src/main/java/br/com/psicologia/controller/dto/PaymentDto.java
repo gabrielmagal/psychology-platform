@@ -1,8 +1,8 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.repository.model.enums.PaymentMethod;
+import br.com.psicologia.enums.PaymentMethod;
 import core.controller.dto.BaseDto;
-import core.repository.model.interfaces.*;
+import core.notes.*;
 import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

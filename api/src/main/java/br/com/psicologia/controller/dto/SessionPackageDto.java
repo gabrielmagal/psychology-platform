@@ -1,7 +1,7 @@
 package br.com.psicologia.controller.dto;
 
 import core.controller.dto.BaseDto;
-import core.repository.model.interfaces.*;
+import core.notes.*;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -17,19 +18,14 @@ import java.util.List;
 @AllArgsConstructor
 public class SessionPackageDto extends BaseDto {
 
+    private UUID psychologistId;
+
     @ILabel("Paciente")
     @IShowInForm
     @IShowInTable
-    @IShowField("name")
+    @IShowField({"firstName", "lastName"})
     @ManyToOne(optional = false)
     private UserDto patient;
-
-    @ILabel("Psicologo")
-    @IShowInForm
-    @IShowInTable
-    @IShowField("name")
-    @ManyToOne(optional = false)
-    private UserDto psychologist;
 
     @ILabel("Sessões")
     @IShowInForm(value = false)

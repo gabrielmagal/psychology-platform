@@ -1,17 +1,19 @@
 package core.controller;
 
 import br.com.psicologia.mapper.BaseMapper;
-import br.com.psicologia.service.model.Filter;
-import br.com.psicologia.service.model.FilterParam;
+import core.service.model.Filter;
+import core.service.model.FilterParam;
 import core.controller.dto.BaseDto;
 import jakarta.ws.rs.*;
 import core.repository.model.BaseEntity;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import core.service.AbstractCrudService;
 
+import javax.management.relation.InvalidRoleValueException;
 import java.util.*;
 
 public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEntity> {
@@ -29,8 +31,8 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
     @GET
     @Path("/{id}")
-    public T findById(@PathParam("id") UUID id) {
-        E entity = service.findById(headers.getHeaderString("Tenant"), id);
+    public T findById(@Context SecurityContext securityContext, @PathParam("id") UUID id) {
+        E entity = service.findById(securityContext, headers.getHeaderString("Tenant"), id);
         if (entity != null) {
             return mapper.toDto(entity);
         } else {
@@ -39,10 +41,10 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
     }
 
     @GET
-    public Map<String, Object> findAllPaged(@QueryParam("page") @DefaultValue("0") int page,
-                                            @QueryParam("size") @DefaultValue("10") int size,
-                                            @Context UriInfo uriInfo) {
-
+    public Map<String, Object> findAllPaged(@Context SecurityContext securityContext,
+                                            @Context UriInfo uriInfo,
+                                            @QueryParam("page") @DefaultValue("0") int page,
+                                            @QueryParam("size") @DefaultValue("10") int size) throws InvalidRoleValueException {
         String tenant = headers.getHeaderString("Tenant");
 
         Filter filter = new Filter();
@@ -58,9 +60,9 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
         filter.setFilterParams(filterParams);
         filter.setSortingParams(Collections.emptyList());
 
-        List<E> entities = service.filteredFindPaged(tenant, filter, page, size);
+        List<E> entities = service.filteredFindPaged(securityContext, tenant, filter, page, size);
         List<T> dtos = mapper.toDtoList(entities);
-        long total = service.countFiltered(tenant, filter);
+        long total = service.countFiltered(securityContext, tenant, filter);
 
         Map<String, Object> response = new HashMap<>();
         response.put("content", dtos);
@@ -73,9 +75,9 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
 
     @POST
-    public T save(@RequestBody T dto) {
+    public T save(@Context SecurityContext securityContext, @RequestBody T dto) {
         E entity = mapper.toEntity(dto);
-        E savedEntity = service.save(headers.getHeaderString("Tenant"), entity);
+        E savedEntity = service.save(securityContext, headers.getHeaderString("Tenant"), entity);
         if (savedEntity != null) {
             return mapper.toDto(savedEntity);
         } else {
@@ -85,12 +87,12 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
     @PUT
     @Path("/{id}")
-    public T update(@PathParam("id") UUID id, @RequestBody T dto) {
-        E existingEntity = service.findById(headers.getHeaderString("Tenant"), id);
+    public T update(@Context SecurityContext securityContext, @PathParam("id") UUID id, @RequestBody T dto) {
+        E existingEntity = service.findById(securityContext, headers.getHeaderString("Tenant"), id);
         if (existingEntity != null) {
             E entityToUpdate = mapper.toEntity(dto);
             //entityToUpdate.setId(id); // garantir ID consistente
-            E updatedEntity = service.save(headers.getHeaderString("Tenant"), entityToUpdate);
+            E updatedEntity = service.update(securityContext, headers.getHeaderString("Tenant"), entityToUpdate);
             if (updatedEntity != null) {
                 return mapper.toDto(updatedEntity);
             } else {
@@ -103,10 +105,10 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
     @DELETE
     @Path("/{id}")
-    public void delete(@PathParam("id") UUID id) {
-        E existingEntity = service.findById(headers.getHeaderString("Tenant"), id);
+    public void delete(@Context SecurityContext securityContext, @PathParam("id") UUID id) {
+        E existingEntity = service.findById(securityContext, headers.getHeaderString("Tenant"), id);
         if (existingEntity != null) {
-            service.delete(headers.getHeaderString("Tenant"), id);
+            service.delete(securityContext, headers.getHeaderString("Tenant"), id);
         } else {
             throw new NotFoundException();
         }

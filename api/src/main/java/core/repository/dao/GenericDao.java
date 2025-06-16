@@ -1,10 +1,10 @@
 package core.repository.dao;
 
 import br.com.psicologia.service.TenantSchemaService;
-import br.com.psicologia.service.model.FilterParam;
+import core.service.model.FilterParam;
 import core.repository.dao.interfaces.IGenericDao;
 import core.repository.model.BaseEntity;
-import br.com.psicologia.service.model.Filter;
+import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.*;
@@ -133,10 +133,11 @@ public class GenericDao implements IGenericDao {
                         if (attr.getType() instanceof EntityType<?>) {
                             path = root.get(param.getField()).get("id");
                             predicates.add(cb.equal(path, UUID.fromString(param.getValue())));
-                            continue;
+                        }
+                        if (attr.getJavaType().equals(UUID.class)) {
+                            predicates.add(cb.equal(path, UUID.fromString(param.getValue())));
                         }
                     }
-                    predicates.add(cb.equal(path, param.getValue()));
                 }
             }
         }
@@ -191,6 +192,46 @@ public class GenericDao implements IGenericDao {
         return entityManager.createQuery(query).getSingleResult();
     }
 
+    public <T extends BaseEntity> List<Predicate> buildPredicatesFromFilter(
+            Filter filter,
+            CriteriaBuilder cb,
+            Root<T> root,
+            Class<T> clazz
+    ) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        if (filter.getFilterParams() != null) {
+            for (FilterParam param : filter.getFilterParams()) {
+                if (param.getField().equalsIgnoreCase("search")) {
+                    List<String> stringFields = Arrays.stream(clazz.getDeclaredFields())
+                            .filter(f -> f.getType().equals(String.class))
+                            .filter(f -> !f.isAnnotationPresent(Lob.class))
+                            .map(Field::getName)
+                            .toList();
+
+                    List<Predicate> orPredicates = stringFields.stream()
+                            .map(f -> cb.like(cb.lower(root.get(f)), "%" + param.getValue().toLowerCase() + "%"))
+                            .toList();
+
+                    predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
+                } else if (param.getField().contains(".")) {
+                    Path<Object> path = resolveNestedPath(root, param.getField());
+                    predicates.add(cb.equal(path, convertToType(path.getJavaType(), param.getValue())));
+                } else {
+                    Path<?> path = root.get(param.getField());
+                    if (path.getModel() instanceof SingularAttribute<?, ?> attr) {
+                        if (attr.getJavaType().equals(UUID.class)) {
+                            predicates.add(cb.equal(path, UUID.fromString(param.getValue())));
+                        } else {
+                            predicates.add(cb.equal(path, convertToType(attr.getJavaType(), param.getValue())));
+                        }
+                    }
+                }
+            }
+        }
+
+        return predicates;
+    }
 
     private Path<Object> resolveNestedPath(Root<?> root, String path) {
         String[] parts = path.split("\\.");

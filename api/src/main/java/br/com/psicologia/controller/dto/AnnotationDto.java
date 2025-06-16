@@ -1,9 +1,9 @@
 package br.com.psicologia.controller.dto;
 
 import core.controller.dto.BaseDto;
-import core.repository.model.interfaces.ILabel;
-import core.repository.model.interfaces.IShowInForm;
-import core.repository.model.interfaces.IShowInTable;
+import core.notes.ILabel;
+import core.notes.IShowInForm;
+import core.notes.IShowInTable;
 import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

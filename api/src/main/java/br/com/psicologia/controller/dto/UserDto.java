@@ -1,11 +1,10 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.repository.model.SessionEntity;
-import br.com.psicologia.repository.model.enums.UserType;
+import br.com.psicologia.enums.UserType;
 import core.controller.dto.BaseDto;
-import core.repository.model.interfaces.ILabel;
-import core.repository.model.interfaces.IShowInForm;
-import core.repository.model.interfaces.IShowInTable;
+import core.notes.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Lob;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -14,8 +13,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @Setter
@@ -23,6 +20,7 @@ import java.util.List;
 @AllArgsConstructor
 public class UserDto extends BaseDto {
     private String keycloakId;
+    private String registeredByKeycloakId;
 
     @ILabel("Cpf")
     @IShowInForm
@@ -30,11 +28,17 @@ public class UserDto extends BaseDto {
     @NotNull
     private String cpf;
 
-    @ILabel("Nome do Usuário")
+    @ILabel("Nome")
     @IShowInForm
     @IShowInTable
     @NotNull
-    private String name;
+    private String firstName;
+
+    @ILabel("Sobrenome")
+    @IShowInForm
+    @IShowInTable
+    @NotNull
+    private String lastName;
 
     @ILabel("Email")
     @IShowInForm
@@ -54,6 +58,12 @@ public class UserDto extends BaseDto {
     @IShowInTable
     @NotNull
     private LocalDate birthDate;
+
+    @ILabel("Imagem")
+    @IShowInForm
+    @IShowInTable(value = false)
+    @IPhoto
+    private String profileImage;
 
     @ILabel("Tipo de Usuário")
     @IShowInForm

@@ -1,6 +1,6 @@
 package core.service;
 
-import core.repository.model.interfaces.*;
+import core.notes.*;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -17,10 +17,9 @@ public abstract class AbstractEntityDescriptionService {
 
     public Map<String, Object> describeEntity(Class<?> entityClass) {
         if (!visited.add(entityClass)) {
-            // Se já visitamos essa classe, evita a recursão infinita
             return Map.of(
                     "type", entityClass.getSimpleName(),
-                    "properties", Map.of() // propriedades vazias como fallback
+                    "properties", Map.of()
             );
         }
 
@@ -145,6 +144,11 @@ public abstract class AbstractEntityDescriptionService {
 
                 if (field.isAnnotationPresent(IFile.class)) {
                     prop.put("file", true);
+                    prop.put("base64", true);
+                }
+
+                if (field.isAnnotationPresent(IPhoto.class)) {
+                    prop.put("photo", true);
                     prop.put("base64", true);
                 }
 

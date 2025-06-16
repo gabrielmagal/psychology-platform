@@ -1,7 +1,7 @@
 package core.repository.dao.interfaces;
 
 import core.repository.model.BaseEntity;
-import br.com.psicologia.service.model.Filter;
+import core.service.model.Filter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 
 import java.util.List;

@@ -1,34 +1,37 @@
 package br.com.psicologia.repository.model;
 
-import br.com.psicologia.repository.model.enums.UserType;
+import br.com.psicologia.enums.UserType;
+import br.com.psicologia.interceptor.AuditListener;
 import core.repository.model.BaseEntity;
-import core.repository.model.interfaces.ILabel;
-import core.repository.model.interfaces.IShowInForm;
-import core.repository.model.interfaces.IShowInTable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "usuario")
+@Table(name = "user_info")
+@EntityListeners(AuditListener.class)
 public class UserEntity extends BaseEntity {
+
+    @Column(name = "registered_by_keycloak_id")
+    private String registeredByKeycloakId;
+
     @Column(name = "keycloak_id", unique = true)
     private String keycloakId;
 
     @Column(name = "cpf", nullable = false, unique = true, length = 11)
     private String cpf;
 
-    @Column(name = "name", nullable = false)
-    private String name;
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
     @Email
     @Column(name = "email", nullable = false)
@@ -40,13 +43,10 @@ public class UserEntity extends BaseEntity {
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 
+    @Column(name = "profile_image", columnDefinition = "TEXT")
+    private String profileImage;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false)
     private UserType userType;
-
-    @OneToMany(mappedBy = "patient")
-    private List<SessionEntity> sessionEntities = new ArrayList<>();
-
-    @OneToMany(mappedBy = "psychologist")
-    private List<SessionEntity> sessionsHeld = new ArrayList<>();
 }
