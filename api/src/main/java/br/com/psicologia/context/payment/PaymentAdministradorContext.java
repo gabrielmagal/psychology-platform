@@ -9,6 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.SecurityContext;
 
 import java.math.BigDecimal;
@@ -40,6 +41,7 @@ public class PaymentAdministradorContext implements IPaymentContextUser {
 
     @Transactional
     public List<PaymentEntity> filteredFindPaged(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter, int page, int size) {
+        dao.defineSchema(tenant);
         String baseQuery = """
             SELECT DISTINCT p FROM PaymentEntity p
             LEFT JOIN FETCH p.sessionPackage sp
@@ -115,5 +117,23 @@ public class PaymentAdministradorContext implements IPaymentContextUser {
         return em.createQuery(jpql, BigDecimal.class)
                 .setParameter("sessionPackageId", sessionPackageId)
                 .getSingleResult();
+    }
+
+    @Override
+    public void makePayment(SecurityContext securityContext, String tenant, UserEntity loggedUser, String paymentId) {
+        dao.defineSchema(tenant);
+
+        List<PaymentEntity> result = em.createQuery("""
+                SELECT p FROM PaymentEntity p
+                WHERE p.paymentId = :paymentId
+            """, PaymentEntity.class)
+            .setParameter("paymentId", paymentId)
+            .getResultList();
+
+        if (result.isEmpty()) {
+            throw new NotFoundException("Usuário com Keycloak ID não encontrado: " + paymentId);
+        }
+
+        dao.update(tenant, result.getFirst());
     }
 }

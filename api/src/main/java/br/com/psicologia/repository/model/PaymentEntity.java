@@ -1,7 +1,9 @@
 package br.com.psicologia.repository.model;
 
-import br.com.psicologia.enums.PaymentMethod;
+import br.com.psicologia.repository.enums.PaymentMethod;
 import br.com.psicologia.interceptor.AuditListener;
+import core.notes.IShowInForm;
+import core.notes.IShowInTable;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -22,11 +24,14 @@ import java.util.UUID;
 @EntityListeners(AuditListener.class)
 public class PaymentEntity extends BaseEntity {
 
+    @Column(name = "payment_id", nullable = false)
+    private String paymentId;
+
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "payment_date", nullable = false)
-    private LocalDate paymentDate;
+    @Column(name = "payment_date")
+    private LocalDate paymentDate = LocalDate.now();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false)
@@ -41,10 +46,10 @@ public class PaymentEntity extends BaseEntity {
     @Column(name = "receipt", columnDefinition = "TEXT")
     private String receipt;
 
-    @Column(name = "receipt_name", nullable = false)
+    @Column(name = "receipt_name")
     private String receiptName;
 
-    @Column(name = "receipt_type", nullable = false)
+    @Column(name = "receipt_type")
     private String receiptType;
 
     @ManyToOne

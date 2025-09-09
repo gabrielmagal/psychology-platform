@@ -79,6 +79,10 @@ public class PaymentContext implements IContext<PaymentEntity> {
         return iContextUser.countFiltered(securityContext, tenant, createSessionContext(securityContext, tenant), filter);
     }
 
+    public void makePayment(SecurityContext securityContext, String tenant, String paymentId) {
+        iContextUser.makePayment(securityContext, tenant, createSessionContext(securityContext, tenant), paymentId);
+    }
+
     public List<PaymentEntity> findPaidBySessionPackage(SecurityContext securityContext, String tenant, UUID sessionPackageId) {
         UserEntity loggedUser = createSessionContext(securityContext, tenant);
         return iContextUser.findPaidBySessionPackage(securityContext, tenant, loggedUser, sessionPackageId);

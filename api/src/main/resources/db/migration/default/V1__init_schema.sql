@@ -23,12 +23,12 @@ CREATE TABLE session_package (
 CREATE TABLE payment (
      id UUID PRIMARY KEY,
      amount NUMERIC(19, 2) NOT NULL,
-     payment_date DATE NOT NULL,
+     payment_date DATE,
      paid BOOLEAN,
      observation VARCHAR(255),
      receipt TEXT,
-     receipt_name VARCHAR(255) NOT NULL,
-     receipt_type VARCHAR(255) NOT NULL,
+     receipt_name VARCHAR(255),
+     receipt_type VARCHAR(255),
      payment_method VARCHAR(50) NOT NULL,
      session_package_id UUID REFERENCES session_package(id) ON DELETE CASCADE
 );
@@ -52,6 +52,16 @@ CREATE TABLE annotation (
     intervention VARCHAR(255) NOT NULL,
     session_id UUID NOT NULL REFERENCES session_info(id) ON DELETE CASCADE
 );
+
+CREATE TABLE mercado_pago_info (
+   id UUID PRIMARY KEY REFERENCES user_info(id),
+   access_token VARCHAR(255) NOT NULL,
+   refresh_token VARCHAR(255),
+   scope VARCHAR(255),
+   expires_in INTEGER,
+   token_created_at TIMESTAMP
+);
+
 
 CREATE TABLE audit_log (
    id UUID PRIMARY KEY,

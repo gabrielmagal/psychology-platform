@@ -9,9 +9,9 @@ export default function AuditLogCrud({ keycloak, realm, onUnauthorized, onForbid
       realm={realm}
       onUnauthorized={onUnauthorized}
       onForbidden={onForbidden}
-      allowedRolesToEdit={[]}
-      allowedRolesToDelete={[]}
-      allowedRolesToSubEntity={[]}
+      allowedRolesToEdit={[""]}
+      allowedRolesToDelete={[""]}
+      allowedRolesToSubEntity={[""]}
     />
   );
 }

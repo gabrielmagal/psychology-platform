@@ -5,7 +5,7 @@ import br.com.psicologia.repository.model.SessionRatingEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "cdi", uses = {UserMapper.class, PaymentMapper.class})
+@Mapper(componentModel = "jakarta", uses = {UserMapper.class, PaymentMapper.class})
 public interface SessionRatingMapper extends BaseMapper<SessionRatingDto, SessionRatingEntity> {
     @Mapping(target = "session", ignore = true)
     @Mapping(target = "patient", ignore = true)

@@ -114,12 +114,23 @@ export default function DynamicForm({
     for (const [key, val] of Object.entries(form)) {
       if (val && typeof val === 'object' && 'id' in val && Object.keys(val).length === 1) {
         result[key] = val;
-      } else if (val && typeof val === 'object' && 'id' in val) {
+      }
+      else if (val && typeof val === 'object' && 'id' in val) {
         result[key] = { id: val.id };
-      } else {
+      }
+      else if (key.endsWith('Id') && typeof val === 'string') {
+        const baseKey = key.slice(0, -2);
+        result[baseKey] = { id: val };
+      }
+      else {
         result[key] = val;
       }
     }
+
+    if (metadata?.properties?.user && form?.id) {
+      result.user = { id: form.id };
+    }
+
     return result;
   };
 
@@ -139,7 +150,7 @@ export default function DynamicForm({
   const handleDateTimeChange = (key, value) => {
     setForm((prev) => ({
       ...prev,
-      [key]: value ? value.format("YYYY-MM-DDTHH:mm:ss") : null,
+      [key]: value ? value.toISOString() : null
     }));
   };
 
@@ -161,28 +172,36 @@ export default function DynamicForm({
           const inputType = meta.type?.toLowerCase().includes("date") ? "date" : "text";
           const value = form[key] ?? "";
 
-          if (meta.type?.toLowerCase().includes("date")) {
-              const isDateTime = meta.type?.toLowerCase().includes("time");
-              return (
+          const type = meta.type?.toLowerCase();
+
+          if (type?.includes("date")) {
+            const isDateTime =
+                type === "localdatetime" ||
+                type === "instant" ||
+                type.includes("datetime") ||
+                type.includes("time");
+
+            return (
                 <div className={styles.formGroup} key={key}>
                   {isDateTime ? (
-                    <DateTimePicker
-                      label={meta.label || key}
-                      value={value ? dayjs(value) : null}
-                      onChange={(newValue) => handleDateTimeChange(key, newValue)}
-                      slotProps={{ textField: { fullWidth: true, required: meta.required } }}
-                    />
+                      <DateTimePicker
+                          label={meta.label || key}
+                          value={value ? dayjs(value) : null}
+                          onChange={(newValue) => handleDateTimeChange(key, newValue)}
+                          slotProps={{ textField: { fullWidth: true, required: meta.required } }}
+                      />
                   ) : (
-                    <DatePicker
-                      label={meta.label || key}
-                      value={value ? dayjs(value) : null}
-                      onChange={(newValue) => handleDateChange(key, newValue)}
-                      slotProps={{ textField: { fullWidth: true, required: meta.required } }}
-                    />
+                      <DatePicker
+                          label={meta.label || key}
+                          value={value ? dayjs(value) : null}
+                          onChange={(newValue) => handleDateChange(key, newValue)}
+                          slotProps={{ textField: { fullWidth: true, required: meta.required } }}
+                      />
                   )}
                 </div>
-              );
-            }
+            );
+          }
+
 
           if (meta.type === ("boolean" || "Boolean")) {
             return (
@@ -526,7 +545,10 @@ export default function DynamicForm({
                   <DialogContent style={{ paddingTop: 16 }}>
                     <DynamicForm
                       metadata={meta.metadata}
-                      initialData={form[key] || {}}
+                      initialData={{
+                        ...(form[key] || {}),
+                        user: form.id ? { id: form.id } : undefined,
+                      }}
                       onSubmit={async (val) => {
                         try {
                           const res = await fetchWithAuth(`${apiUrl}/${meta.relatedType}`,

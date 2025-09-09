@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
+import java.time.Instant;
 import java.util.*;
 
 public abstract class AbstractEntityDescriptionService {
@@ -97,7 +98,9 @@ public abstract class AbstractEntityDescriptionService {
                 }
 
                 boolean isDtoField = fieldType.getSimpleName().endsWith("Dto");
-                String relatedType = isDtoField ? decapitalize(fieldType.getSimpleName().replace("Dto", "")) : null;
+                String relatedType = Optional.ofNullable(field.getAnnotation(IRelatedType.class))
+                        .map(IRelatedType::value)
+                        .orElseGet(() -> isDtoField ? decapitalize(fieldType.getSimpleName().replace("Dto", "")) : null);
 
                 if (field.isAnnotationPresent(OneToOne.class)) {
                     prop.put("oneToOne", true);
@@ -167,9 +170,14 @@ public abstract class AbstractEntityDescriptionService {
                     prop.put("required", !col.nullable());
                 }
 
+                if (fieldType.equals(Instant.class)) {
+                    prop.put("type", "LocalDateTime");
+                }
+
                 if (field.isAnnotationPresent(NotNull.class)) {
                     prop.put("required", true);
                 }
+
                 if (field.isAnnotationPresent(NotBlank.class)) {
                     prop.put("required", true);
                     prop.put("notBlank", true);

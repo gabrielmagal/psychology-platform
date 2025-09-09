@@ -45,6 +45,26 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
         setModalError(null);
     };
 
+    const handlePaymentRedirect = async (item) => {
+        try {
+            const apiUrl = process.env.REACT_APP_API_URL;
+            const res = await fetch(`${apiUrl}/mercado-pago-info/payment-preference/${item.id}`, {
+                method: 'GET',
+                headers: {
+                    Authorization: "Bearer " + keycloak.token,
+                    Tenant: realm,
+                },
+            });
+
+            if (!res.ok) throw new Error("Erro ao iniciar pagamento");
+            const { paymentUrl } = await res.json();
+            window.location.href = paymentUrl;
+        } catch (e) {
+            alert("Erro ao redirecionar para pagamento.");
+            console.error(e);
+        }
+    };
+
     return (
         <>
             <EntityCrudPage
@@ -54,19 +74,31 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
                 realm={realm}
                 onUnauthorized={onUnauthorized}
                 onForbidden={onForbidden}
-                renderExtraAction={[
-                    (item) =>
-                    (
-                        (isAdmin || isPsychologist) && (
-                        <button
-                            className={styles.actionBtn}
-                            onClick={() => handleOpenModal(item)}
-                        >
-                            Total Pago
-                        </button>
-                        )
-                    )
-                ]}
+                renderExtraAction={
+                    [
+                        (item) =>
+                        (
+                            (isAdmin || isPsychologist) &&
+                            (
+                                <button
+                                    className={styles.actionBtn}
+                                    onClick={() => handleOpenModal(item)}
+                                >
+                                    Total Pago
+                                </button>
+                            )
+                        ),
+                        (item) =>
+                            (
+                                <button
+                                    className={styles.actionBtn}
+                                    onClick={() => handlePaymentRedirect(item)}
+                                >
+                                    Efetuar Pagamento Mercado Pago
+                                </button>
+                            )
+                    ]
+                }
                 allowedRolesToEdit={[Roles.ADMIN, Roles.PSYCHOLOGIST]}
                 allowedRolesToDelete={[Roles.ADMIN, Roles.PSYCHOLOGIST]}
                 allowedRolesToSubEntity={[Roles.ADMIN, Roles.PSYCHOLOGIST, Roles.PATIENT]}

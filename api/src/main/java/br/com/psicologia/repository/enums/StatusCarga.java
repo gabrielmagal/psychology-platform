@@ -1,4 +1,4 @@
-package br.com.psicologia.enums;
+package br.com.psicologia.repository.enums;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 

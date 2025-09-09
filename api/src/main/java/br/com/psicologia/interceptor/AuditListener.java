@@ -1,6 +1,8 @@
 package br.com.psicologia.interceptor;
 
 import br.com.psicologia.repository.model.AuditLogEntity;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import core.repository.model.BaseEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -20,23 +22,26 @@ public class AuditListener {
     @Inject
     SecurityContext securityContext;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     @PrePersist
-    public void prePersist(Object entity) {
+    public void prePersist(Object entity) throws JsonProcessingException {
         saveAudit(entity, "CREATE", null);
     }
 
     @PreUpdate
-    public void preUpdate(Object entity) {
+    public void preUpdate(Object entity) throws JsonProcessingException {
         Object old = em.find(entity.getClass(), ((BaseEntity) entity).getId());
         saveAudit(entity, "UPDATE", old);
     }
 
     @PreRemove
-    public void preRemove(Object entity) {
+    public void preRemove(Object entity) throws JsonProcessingException {
         saveAudit(entity, "DELETE", entity);
     }
 
-    private void saveAudit(Object entity, String action, Object oldEntity) {
+    private void saveAudit(Object entity, String action, Object oldEntity) throws JsonProcessingException {
         String keycloakId = securityContext.getUserPrincipal().getName();
 
         AuditLogEntity log = new AuditLogEntity();
@@ -50,7 +55,7 @@ public class AuditListener {
         }
 
         if (!"DELETE".equals(action)) {
-            log.setNewValue(JsonUtils.toJson(entity));
+            log.setNewValue(objectMapper.writeValueAsString(entity));
         }
 
         em.persist(log);

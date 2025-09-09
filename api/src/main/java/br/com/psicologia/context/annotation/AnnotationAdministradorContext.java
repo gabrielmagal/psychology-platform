@@ -54,11 +54,11 @@ public class AnnotationAdministradorContext implements IContextUser<AnnotationEn
         if (session == null) {
             throw new IllegalArgumentException("Anotação não encontrada.");
         }
-        dao.delete(tenant, id, SessionEntity.class);
+        dao.delete(tenant, id, AnnotationEntity.class);
     }
 
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        return dao.countFiltered(tenant, filter, SessionEntity.class);
+        return dao.countFiltered(tenant, filter, AnnotationEntity.class);
     }
 }

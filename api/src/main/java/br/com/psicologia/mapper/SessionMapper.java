@@ -5,7 +5,7 @@ import br.com.psicologia.repository.model.SessionEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "cdi", uses = {UserMapper.class, PaymentMapper.class, SessionPackageMapper.class})
+@Mapper(componentModel = "jakarta", uses = {UserMapper.class, PaymentMapper.class, SessionPackageMapper.class})
 public interface SessionMapper extends BaseMapper<SessionDto, SessionEntity> {
 
     @Mapping(target = "annotation", ignore = true)

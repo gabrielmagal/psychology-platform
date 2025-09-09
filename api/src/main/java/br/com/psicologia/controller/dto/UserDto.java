@@ -1,10 +1,9 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.enums.UserType;
+import br.com.psicologia.repository.enums.UserType;
 import core.controller.dto.BaseDto;
 import core.notes.*;
-import jakarta.persistence.Column;
-import jakarta.persistence.Lob;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -19,6 +18,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDto extends BaseDto {
+
     private String keycloakId;
     private String registeredByKeycloakId;
 
@@ -70,4 +70,12 @@ public class UserDto extends BaseDto {
     @IShowInTable
     @NotNull
     private UserType userType;
+
+    @ILabel("Mercado Pago Infos")
+    @OneToOne
+    @IShowInForm
+    @IShowInTable
+    @IShowField("packageTitle")
+    @IRelatedType("mercado-pago-info")
+    private MercadoPagoInfoDto mercadoPagoInfo;
 }

@@ -52,12 +52,22 @@ export default function Home({ keycloak, realm }) {
                     {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
                     {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
                 </div>
-                <div className={styles.card} onClick={() => navigate("/audit-log")}>
-                    <h2>🧠 Auditoria</h2>
-                    {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
-                    {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
-                    {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
-                </div>
+                {(isAdmin || isPsychologist) &&
+                    <div className={styles.card} onClick={() => navigate("/mercado-pago-info")}>
+                        <h2>🧠 Mercado Pago</h2>
+                        {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
+                        {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
+                        {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
+                    </div>
+                }
+                {isAdmin &&
+                    <div className={styles.card} onClick={() => navigate("/audit-log")}>
+                        <h2>🧠 Auditoria</h2>
+                        {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
+                        {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
+                        {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
+                    </div>
+                }
             </div>
 
             <div className={styles.about}>

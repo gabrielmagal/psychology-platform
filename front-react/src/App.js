@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./components/Home";
+import RetornoPagamentoPage from "./components/pages/retorno-pagamento/RetornoPagamentoPage";
 import UserCrud from "./components/pages/user/UserCrud";
 import SessionPackageCrud from "./components/pages/session-package/SessionPackageCrud";
 import AuditLogCrud from "./components/pages/audit/AuditLogCrud";
@@ -8,6 +9,7 @@ import Navigation from "./components/Navigation";
 import AlertDialog from "./components/shared/dialog/AlertDialog";
 import {useRoles} from "./components/shared/UseRoles";
 import UserProfilePage from "./components/pages/user/UserProfilePage";
+import MercadoPagoInfoCrud from "./components/pages/mercadopagoinfo/MercadoPagoInfoCrud";
 
 function App({ keycloak, realm }) {
     const [alert, setAlert] = useState({ open: false, message: "" });
@@ -35,6 +37,7 @@ function App({ keycloak, realm }) {
         <BrowserRouter basename={`/${realm}`}>
           <Navigation keycloak={keycloak} realm={realm} onUnauthorized={handleUnauthorized} onForbidden={handleForbidden} />
           <Routes>
+            <Route path="/retorno-pagamento" element={<RetornoPagamentoPage keycloak={keycloak} realm={realm} />} />
             <Route path="/" element={<Home keycloak={keycloak} realm={realm} />} />
             { (isAdmin || isPsychologist) &&
                 (
@@ -67,6 +70,16 @@ function App({ keycloak, realm }) {
                   />
               )
             }
+
+            <Route path="/mercado-pago-info" element={
+                    <MercadoPagoInfoCrud
+                      keycloak={keycloak}
+                      realm={realm}
+                      onUnauthorized={handleUnauthorized}
+                      onForbidden={handleForbidden}
+                    />
+                }
+            />
             <Route path="/perfil" element={
                       <UserProfilePage
                           keycloak={keycloak}

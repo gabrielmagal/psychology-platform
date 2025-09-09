@@ -36,8 +36,8 @@ public class UserPacienteContext implements IContextUser<UserEntity> {
 
     @Transactional
     public UserEntity update(SecurityContext securityContext, String tenant, UserEntity loggedUser, UserEntity entity) {
-        if (entity.getKeycloakId().equals(loggedUser.getKeycloakId()) || entity.getRegisteredByKeycloakId().equals(loggedUser.getKeycloakId())) {
-            UserEntity original = dao.findById(tenant, loggedUser.getId(), UserEntity.class);
+        UserEntity original = dao.findById(tenant, entity.getId(), UserEntity.class);
+        if (original.getKeycloakId().equals(loggedUser.getKeycloakId()) || original.getRegisteredByKeycloakId().equals(loggedUser.getKeycloakId())) {
             original.setFirstName(entity.getFirstName());
             original.setLastName(entity.getLastName());
             original.setEmail(entity.getEmail());

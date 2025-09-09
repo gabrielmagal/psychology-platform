@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface IPaymentContextUser extends IContextUser<PaymentEntity> {
     List<PaymentEntity> findPaidBySessionPackage(SecurityContext securityContext, String tenant, UserEntity loggedUser, UUID sessionPackageId);
     BigDecimal sumPaidAmountBySessionPackage(SecurityContext securityContext, String tenant, UserEntity loggedUser, UUID sessionPackageId);
+    void makePayment(SecurityContext securityContext, String tenant, UserEntity loggedUser, String paymentId);
 }

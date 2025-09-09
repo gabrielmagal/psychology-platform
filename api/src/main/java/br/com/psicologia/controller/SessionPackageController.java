@@ -28,7 +28,7 @@ public class SessionPackageController extends AbstractBaseContextController<Sess
     private final PaymentMapper paymentMapper;
 
     public SessionPackageController(SessionPackageContext context, SessionPackageMapper mapper, PaymentMapper paymentMapper) {
-        super((IContext<SessionPackageEntity>) context, mapper);
+        super(context, mapper);
         this.context = context;
         this.paymentMapper = paymentMapper;
     }

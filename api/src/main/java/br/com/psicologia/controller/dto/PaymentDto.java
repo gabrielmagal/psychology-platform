@@ -1,6 +1,6 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.enums.PaymentMethod;
+import br.com.psicologia.repository.enums.PaymentMethod;
 import core.controller.dto.BaseDto;
 import core.notes.*;
 import jakarta.persistence.ManyToOne;
@@ -18,6 +18,9 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentDto extends BaseDto {
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    private String paymentId;
 
     @ILabel("Valor")
     @IShowInForm

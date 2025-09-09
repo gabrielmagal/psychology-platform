@@ -1,6 +1,8 @@
 package br.com.psicologia.repository.model;
 
 import br.com.psicologia.interceptor.AuditListener;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -19,6 +21,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditListener.class)
+@JsonIdentityInfo(
+        generator = ObjectIdGenerators.PropertyGenerator.class,
+        property = "id"
+)
 public class SessionPackageEntity extends BaseEntity {
 
     @Column(name = "psychologist_id")

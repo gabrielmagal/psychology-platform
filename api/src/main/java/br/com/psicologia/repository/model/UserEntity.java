@@ -1,6 +1,6 @@
 package br.com.psicologia.repository.model;
 
-import br.com.psicologia.enums.UserType;
+import br.com.psicologia.repository.enums.UserType;
 import br.com.psicologia.interceptor.AuditListener;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
@@ -49,4 +49,7 @@ public class UserEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false)
     private UserType userType;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MercadoPagoInfoEntity mercadoPagoInfo;
 }

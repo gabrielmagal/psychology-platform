@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.*;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.SecurityContext;
 
 import java.math.BigDecimal;
@@ -131,5 +132,24 @@ public class PaymentPacienteContext implements IPaymentContextUser {
                 .setParameter("sessionPackageId", sessionPackageId)
                 .setParameter("patientId", loggedUser.getId())
                 .getSingleResult();
+    }
+
+    // Implementar validação com Session do usuário
+    @Override
+    public void makePayment(SecurityContext securityContext, String tenant, UserEntity loggedUser, String paymentId) {
+        dao.defineSchema(tenant);
+
+        List<PaymentEntity> result = em.createQuery("""
+                SELECT p FROM PaymentEntity p
+                WHERE p.paymentId = :paymentId
+            """, PaymentEntity.class)
+                .setParameter("paymentId", paymentId)
+                .getResultList();
+
+        if (result.isEmpty()) {
+            throw new NotFoundException("Usuário com Keycloak ID não encontrado: " + paymentId);
+        }
+
+        dao.update(tenant, result.getFirst());
     }
 }
