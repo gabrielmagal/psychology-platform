@@ -18,7 +18,7 @@ public class Main {
     public static class MyApp implements QuarkusApplication {
         @Override
         public int run(String... args) {
-            hashClientSecret.put("barueri", new ClientSecretDto("backend", "abwSFOlpPaTaMqxzjosOnA6CpNFkRxB5"));
+            hashClientSecret.put("barueri", new ClientSecretDto("backend", "RVQj6b5EmsFhzSZAT6YvAV9cBmbdxoLr"));
             hashClientSecret.put("campinas", new ClientSecretDto("backend", "giRyjMncqT8x1Q7cm4BIkEcTZ4g8l46h"));
             hashClientSecret.put("doacoesalimenticias", new ClientSecretDto("doacoesalimenticias-backend", "FwS35Wrktt0526i2lVMPV2RF4FAgdItG"));
             hashClientSecret.put("petrodoacoes", new ClientSecretDto("petrodoacoes-backend", "rCuZpfNN7LInS5BqqRMoQMFf8BeTHFIY"));

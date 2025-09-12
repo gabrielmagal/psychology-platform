@@ -1,6 +1,8 @@
 package br.com.psicologia.service;
 
 import br.com.psicologia.repository.model.UserEntity;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import core.repository.dao.GenericDao;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -17,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -85,6 +88,72 @@ public class KeycloakService {
             return userId;
         } catch (Exception e) {
             throw new RuntimeException("Erro integrando com Keycloak", e);
+        }
+    }
+
+    public void updateUser(String realm, String userId, UserEntity user, Set<String> roles) {
+        String payload = """
+            {
+              "username": "%s",
+              "email": "%s",
+              "enabled": true,
+              "firstName": "%s",
+              "lastName": "%s"
+            }
+            """.formatted
+                (
+                    user.getCpf(),
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName()
+                );
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(keycloakUrl + "/admin/realms/" + realm + "/users/" + userId))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + keycloakAdminTokenService.getAdminAccessToken())
+                    .PUT(HttpRequest.BodyPublishers.ofString(payload))
+                    .build();
+
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 204) {
+                throw new RuntimeException("Falha ao atualizar usuário: " + response.body());
+            }
+
+            updateUserRoles(realm, userId, roles);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erro integrando com Keycloak", e);
+        }
+    }
+
+    private void updateUserRoles(String realm, String userId, Set<String> roles) throws Exception {
+        HttpRequest getRolesRequest = HttpRequest.newBuilder()
+                .uri(URI.create(keycloakUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm"))
+                .header("Authorization", "Bearer " + keycloakAdminTokenService.getAdminAccessToken())
+                .GET()
+                .build();
+
+        HttpResponse<String> rolesResponse = HttpClient.newHttpClient().send(getRolesRequest, HttpResponse.BodyHandlers.ofString());
+        if (rolesResponse.statusCode() != 200) {
+            throw new RuntimeException("Falha ao buscar roles atuais: " + rolesResponse.body());
+        }
+
+        List<Map<String, Object>> currentRoles = new ObjectMapper().readValue(rolesResponse.body(), new TypeReference<>(){});
+        if (!currentRoles.isEmpty()) {
+            String removePayload = new ObjectMapper().writeValueAsString(currentRoles);
+            HttpRequest removeRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(keycloakUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm"))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + keycloakAdminTokenService.getAdminAccessToken())
+                    .method("DELETE", HttpRequest.BodyPublishers.ofString(removePayload))
+                    .build();
+            HttpClient.newHttpClient().send(removeRequest, HttpResponse.BodyHandlers.ofString());
+        }
+
+        for (String roleName : roles) {
+            assignRealmRole(realm, userId, roleName);
         }
     }
 

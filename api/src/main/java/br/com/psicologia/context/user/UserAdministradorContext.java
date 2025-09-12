@@ -46,7 +46,25 @@ public class UserAdministradorContext implements IContextUser<UserEntity> {
 
     @Transactional
     public UserEntity update(SecurityContext securityContext, String tenant, UserEntity loggedUser, UserEntity entity) {
-        return dao.update(tenant, entity);
+        UserEntity original = dao.findById(tenant, entity.getId(), UserEntity.class);
+        if (original == null) {
+            throw new IllegalArgumentException("Usuário não encontrado.");
+        }
+
+        Set<String> roles = switch (entity.getUserType()) {
+            case PSICOLOGO -> Set.of("PSICOLOGO_ROLE");
+            case PACIENTE  -> Set.of("PACIENTE_ROLE");
+            case ADMINISTRADOR  -> Set.of("ADMINISTRADOR_ROLE");
+        };
+
+        entity.setKeycloakId(original.getKeycloakId());
+        entity.setRegisteredByKeycloakId(original.getRegisteredByKeycloakId());
+
+        UserEntity saved = dao.update(tenant, entity);
+
+        keycloakService.updateUser(tenant, original.getKeycloakId(), saved, roles);
+
+        return dao.findById(tenant, saved.getId(), UserEntity.class);
     }
 
     @Override
