@@ -50,7 +50,8 @@ public class GenericDao implements IGenericDao {
     }
 
     @Override
-    public <T extends BaseEntity> long count(Class<T> clazz) {
+    public <T extends BaseEntity> long count(String tenant, Class<T> clazz) {
+        defineSchema(tenant);
         CriteriaBuilder builder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> query = builder.createQuery(Long.class);
         Root<T> root = query.from(clazz);
@@ -71,15 +72,6 @@ public class GenericDao implements IGenericDao {
     @Override
     public <T extends BaseEntity> List<T> findAllPaged(String tenant, int page, int size, Class<T> clazz) {
         defineSchema(tenant);
-        return entityManager.createQuery("FROM " + clazz.getSimpleName(), clazz)
-                .setFirstResult(page * size)
-                .setMaxResults(size)
-                .getResultList();
-    }
-
-
-    @Override
-    public <T extends BaseEntity> List<T> findAllPaged(int page, int size, Class<T> clazz) {
         CriteriaBuilder builder = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = builder.createQuery(clazz);
         Root<T> root = query.from(clazz);
@@ -93,7 +85,8 @@ public class GenericDao implements IGenericDao {
     }
 
     @Override
-    public CriteriaBuilder getCriteriaBuilder() {
+    public CriteriaBuilder getCriteriaBuilder(String tenant) {
+        defineSchema(tenant);
         return entityManager.getCriteriaBuilder();
     }
 

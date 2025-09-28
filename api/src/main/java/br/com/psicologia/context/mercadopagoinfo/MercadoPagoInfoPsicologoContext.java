@@ -3,6 +3,7 @@ package br.com.psicologia.context.mercadopagoinfo;
 import br.com.psicologia.context.mercadopagoinfo.interfaces.IMercadoPagoInfoContextUser;
 import br.com.psicologia.context.payment.PaymentContext;
 import br.com.psicologia.context.sessionpackage.SessionPackageContext;
+import br.com.psicologia.context.user.UserContext;
 import br.com.psicologia.repository.enums.PaymentMethod;
 import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
 import br.com.psicologia.repository.model.PaymentEntity;
@@ -44,6 +45,9 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
     GenericDao dao;
 
     @Inject
+    UserContext userContext;
+
+    @Inject
     SessionPackageContext sessionPackageContext;
 
     @Inject
@@ -53,15 +57,22 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
 
     @Transactional
     public MercadoPagoInfoEntity save(SecurityContext securityContext, String tenant, UserEntity loggedUser, MercadoPagoInfoEntity entity) {
-        if (entity.getUser().getKeycloakId().equals(loggedUser.getKeycloakId())) {
-            return dao.update(tenant, entity);
+        dao.defineSchema(tenant);
+        UserEntity user = userContext.findById(securityContext, tenant, entity.getUser().getId());
+        if (user.getKeycloakId().equals(loggedUser.getKeycloakId())) {
+            entity.setUser(user);
+            entity.setId(user.getId());
+            em.persist(entity);
+            return entity;
         }
         throw new SecurityException(MSG_UNAUTHORIZED);
     }
 
     @Transactional
     public MercadoPagoInfoEntity update(SecurityContext securityContext, String tenant, UserEntity loggedUser, MercadoPagoInfoEntity entity) {
-        if (entity.getUser().getKeycloakId().equals(loggedUser.getKeycloakId())) {
+        dao.defineSchema(tenant);
+        UserEntity user = userContext.findById(securityContext, tenant, entity.getUser().getId());
+        if (user.getKeycloakId().equals(loggedUser.getKeycloakId())) {
             MercadoPagoInfoEntity original = dao.findById(tenant, entity.getId(), MercadoPagoInfoEntity.class);
             original.setAccessToken(entity.getAccessToken());
             original.setRefreshToken(entity.getRefreshToken());
@@ -75,9 +86,7 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
 
     @Transactional
     public List<MercadoPagoInfoEntity> filteredFindPaged(SecurityContext securityContext, String tenant, UserEntity loggedUser, Filter filter, int page, int size) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<MercadoPagoInfoEntity> query = cb.createQuery(MercadoPagoInfoEntity.class);
         Root<MercadoPagoInfoEntity> root = query.from(MercadoPagoInfoEntity.class);
         query.select(root).distinct(true);
@@ -138,9 +147,7 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
     @Override
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<Long> query = cb.createQuery(Long.class);
         Root<MercadoPagoInfoEntity> root = query.from(MercadoPagoInfoEntity.class);
 
@@ -202,6 +209,7 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
             payment.setAmount(new BigDecimal("150.00"));
             payment.setSessionPackage(sessionPackage);
             payment.setPaymentId(preference.getId());
+            payment.setPaymentMethod(PaymentMethod.OTHER);
             paymentContext.save(context, tenant, payment);
 
             return preference.getInitPoint();

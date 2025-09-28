@@ -2,6 +2,8 @@ package br.com.psicologia.repository.model;
 
 import br.com.psicologia.repository.enums.UserType;
 import br.com.psicologia.interceptor.AuditListener;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -50,6 +52,7 @@ public class UserEntity extends BaseEntity {
     @Column(name = "user_type", nullable = false)
     private UserType userType;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.PERSIST, orphanRemoval = true)
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private MercadoPagoInfoEntity mercadoPagoInfo;
 }

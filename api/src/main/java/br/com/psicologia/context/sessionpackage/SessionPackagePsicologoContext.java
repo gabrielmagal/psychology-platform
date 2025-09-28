@@ -11,10 +11,7 @@ import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.SecurityContext;
 
@@ -56,7 +53,9 @@ public class SessionPackagePsicologoContext implements ISessionPackageContextUse
         if (original == null) {
             throw new IllegalArgumentException("Pacote de sessão não encontrado.");
         }
-        if (original.getPsychologistId().toString().equals(loggedUser.getKeycloakId())) {
+        UserEntity userEntity = userContext.findById(securityContext, tenant, original.getPsychologistId());
+        if (userEntity != null && userEntity.getKeycloakId().equals(loggedUser.getKeycloakId())) {
+            entity.setPsychologistId(original.getPsychologistId());
             return dao.update(tenant, entity);
         }
         throw new SecurityException("Você não tem permissão para atualizar pacote de sessão de outros psicólogos.");
@@ -69,6 +68,11 @@ public class SessionPackagePsicologoContext implements ISessionPackageContextUse
         CriteriaBuilder cb = em.getCriteriaBuilder();
         CriteriaQuery<SessionPackageEntity> query = cb.createQuery(SessionPackageEntity.class);
         Root<SessionPackageEntity> root = query.from(SessionPackageEntity.class);
+
+        root.fetch("payment", JoinType.LEFT);
+        root.fetch("session", JoinType.LEFT);
+        root.fetch("patient", JoinType.LEFT);
+
         query.select(root).distinct(true);
 
         List<Predicate> predicates = new ArrayList<>();

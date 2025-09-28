@@ -43,9 +43,7 @@ public class SessionPacienteContext implements IContextUser<SessionEntity> {
     @Override
     @Transactional
     public List<SessionEntity> filteredFindPaged(SecurityContext sc, String tenant, UserEntity userEntity, Filter filter, int page, int size) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<SessionEntity> query = cb.createQuery(SessionEntity.class);
         Root<SessionEntity> root = query.from(SessionEntity.class);
         query.select(root).distinct(true);
@@ -84,9 +82,7 @@ public class SessionPacienteContext implements IContextUser<SessionEntity> {
 
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<Long> query = cb.createQuery(Long.class);
         Root<SessionEntity> root = query.from(SessionEntity.class);
 

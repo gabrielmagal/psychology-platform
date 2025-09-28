@@ -67,9 +67,7 @@ public class UserPsicologoContext implements IContextUser<UserEntity> {
 
     @Transactional
     public List<UserEntity> filteredFindPaged(SecurityContext securityContext, String tenant, UserEntity loggedUser, Filter filter, int page, int size) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<UserEntity> query = cb.createQuery(UserEntity.class);
         Root<UserEntity> root = query.from(UserEntity.class);
         query.select(root).distinct(true);
@@ -120,9 +118,7 @@ public class UserPsicologoContext implements IContextUser<UserEntity> {
     @Override
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<Long> query = cb.createQuery(Long.class);
         Root<UserEntity> root = query.from(UserEntity.class);
 

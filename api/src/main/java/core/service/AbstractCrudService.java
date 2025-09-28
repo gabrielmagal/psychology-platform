@@ -59,11 +59,6 @@ public abstract class AbstractCrudService<T extends BaseEntity> extends Abstract
     }
 
     @Override
-    public List<T> findAllPaged(SecurityContext securityContext, int page, int size) {
-        return dao.findAllPaged(page, size, entityClass);
-    }
-
-    @Override
     public List<T> filteredFindPaged(SecurityContext securityContext, String tenant, Filter filter, int page, int size) throws InvalidRoleValueException {
         return dao.filteredFindPaged(tenant, filter, page, size, entityClass);
     }

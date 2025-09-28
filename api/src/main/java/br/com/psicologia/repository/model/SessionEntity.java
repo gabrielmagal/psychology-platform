@@ -1,6 +1,8 @@
 package br.com.psicologia.repository.model;
 
 import br.com.psicologia.interceptor.AuditListener;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -35,10 +37,12 @@ public class SessionEntity extends BaseEntity {
     private String privateNotes;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private List<AnnotationEntity> annotation = new ArrayList<>();
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "session_package_id")
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private SessionPackageEntity sessionPackage;
 
     @Column(name = "attended_at")

@@ -2,8 +2,8 @@ package br.com.psicologia.repository.model;
 
 import br.com.psicologia.repository.enums.PaymentMethod;
 import br.com.psicologia.interceptor.AuditListener;
-import core.notes.IShowInForm;
-import core.notes.IShowInTable;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -54,6 +54,7 @@ public class PaymentEntity extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "session_package_id")
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private SessionPackageEntity sessionPackage;
 
     public PaymentEntity(UUID id, BigDecimal amount, LocalDate paymentDate, PaymentMethod paymentMethod, boolean paid,

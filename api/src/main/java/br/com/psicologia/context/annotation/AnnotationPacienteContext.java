@@ -41,9 +41,7 @@ public class AnnotationPacienteContext implements IContextUser<AnnotationEntity>
 
     @Transactional
     public List<AnnotationEntity> filteredFindPaged(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter, int page, int size) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<AnnotationEntity> query = cb.createQuery(AnnotationEntity.class);
         Root<AnnotationEntity> root = query.from(AnnotationEntity.class);
         query.select(root).distinct(true);
@@ -91,9 +89,7 @@ public class AnnotationPacienteContext implements IContextUser<AnnotationEntity>
 
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<Long> query = cb.createQuery(Long.class);
         Root<AnnotationEntity> root = query.from(AnnotationEntity.class);
 

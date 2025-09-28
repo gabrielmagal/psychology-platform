@@ -1,6 +1,8 @@
 package br.com.psicologia.repository.model;
 
 import br.com.psicologia.interceptor.AuditListener;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -32,7 +34,8 @@ public class AnnotationEntity extends BaseEntity {
     @Column(name = "intervention", nullable = false)
     private String intervention;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "session_id")
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private SessionEntity session;
 }

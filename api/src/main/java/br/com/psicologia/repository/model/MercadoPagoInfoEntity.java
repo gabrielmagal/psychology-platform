@@ -1,7 +1,6 @@
 package br.com.psicologia.repository.model;
 
 import br.com.psicologia.interceptor.AuditListener;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -23,7 +22,6 @@ public class MercadoPagoInfoEntity extends BaseEntity {
     @OneToOne(optional = false)
     @MapsId
     @JoinColumn(name = "id")
-    @JsonIgnore
     private UserEntity user;
 
     @Column(name = "access_token", nullable = false, length = 255)

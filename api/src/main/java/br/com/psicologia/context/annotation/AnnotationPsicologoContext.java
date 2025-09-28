@@ -1,5 +1,6 @@
 package br.com.psicologia.context.annotation;
 
+import br.com.psicologia.context.user.UserContext;
 import br.com.psicologia.repository.model.AnnotationEntity;
 import br.com.psicologia.repository.model.SessionEntity;
 import br.com.psicologia.repository.model.SessionPackageEntity;
@@ -27,13 +28,13 @@ public class AnnotationPsicologoContext implements IContextUser<AnnotationEntity
     @Inject
     GenericDao dao;
 
+    @Inject
+    UserContext userContext;
+
     @Transactional
     public AnnotationEntity save(SecurityContext securityContext, String tenant, UserEntity loggedUser, AnnotationEntity entity) {
-        AnnotationEntity original = dao.findById(tenant, entity.getId(), AnnotationEntity.class);
-        if (original == null) {
-            throw new IllegalArgumentException("Anotação não encontrada.");
-        }
-        if (original.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+        UserEntity userEntity = userContext.findById(securityContext, tenant, entity.getSession().getSessionPackage().getPsychologistId());
+        if (userEntity != null && userEntity.getKeycloakId().equals(loggedUser.getKeycloakId())) {
             return dao.update(tenant, entity);
         }
         throw new SecurityException("Psicólogo só pode criar anotações nas suas próprias sessões.");
@@ -43,7 +44,7 @@ public class AnnotationPsicologoContext implements IContextUser<AnnotationEntity
     public AnnotationEntity update(SecurityContext securityContext, String tenant, UserEntity loggedUser, AnnotationEntity entity) {
         AnnotationEntity original = dao.findById(tenant, entity.getId(), AnnotationEntity.class);
         if (original == null) {
-            throw new IllegalArgumentException("Sessão não encontrada.");
+            throw new IllegalArgumentException("Anotação não encontrada.");
         }
         if (original.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
             return dao.update(tenant, entity);
@@ -53,9 +54,7 @@ public class AnnotationPsicologoContext implements IContextUser<AnnotationEntity
 
     @Transactional
     public List<AnnotationEntity> filteredFindPaged(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter, int page, int size) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<AnnotationEntity> query = cb.createQuery(AnnotationEntity.class);
         Root<AnnotationEntity> root = query.from(AnnotationEntity.class);
         query.select(root).distinct(true);
@@ -104,9 +103,7 @@ public class AnnotationPsicologoContext implements IContextUser<AnnotationEntity
 
     @Transactional
     public long countFiltered(SecurityContext securityContext, String tenant, UserEntity userEntity, Filter filter) {
-        dao.defineSchema(tenant);
-
-        CriteriaBuilder cb = dao.getCriteriaBuilder();
+        CriteriaBuilder cb = dao.getCriteriaBuilder(tenant);
         CriteriaQuery<Long> query = cb.createQuery(Long.class);
         Root<AnnotationEntity> root = query.from(AnnotationEntity.class);
 

@@ -10,9 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "session_package")
@@ -35,10 +33,12 @@ public class SessionPackageEntity extends BaseEntity {
     private UserEntity patient;
 
     @OneToMany(mappedBy = "sessionPackage", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SessionEntity> session = new ArrayList<>();
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+    private Set<SessionEntity> session = new HashSet<>();
 
     @OneToMany(mappedBy = "sessionPackage", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PaymentEntity> payment = new ArrayList<>();
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+    private Set<PaymentEntity> payment = new HashSet<>();
 
     @Column(name = "package_title")
     private String packageTitle;

@@ -18,6 +18,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class SessionPackageDto extends BaseDto {
 
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
     private UUID psychologistId;
 
     @ILabel("Paciente")
