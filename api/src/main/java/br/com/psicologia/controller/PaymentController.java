@@ -1,6 +1,7 @@
 package br.com.psicologia.controller;
 
 import br.com.psicologia.context.payment.PaymentContext;
+import br.com.psicologia.controller.dto.MakePaymentDto;
 import br.com.psicologia.controller.dto.PaymentDto;
 import br.com.psicologia.mapper.PaymentMapper;
 import br.com.psicologia.repository.model.PaymentEntity;
@@ -26,8 +27,8 @@ public class PaymentController extends AbstractBaseContextController<PaymentDto,
 
     @POST
     @Path("/confirm")
-    public void confirmarPagamento(@Context SecurityContext securityContext, String paymentId) {
-        paymentContext.makePayment(securityContext, headers.getHeaderString("Tenant"), paymentId);
+    public void confirmarPagamento(@Context SecurityContext securityContext, MakePaymentDto makePaymentDto) {
+        paymentContext.makePayment(securityContext, headers.getHeaderString("Tenant"), makePaymentDto);
     }
 
     @GET

@@ -2,6 +2,7 @@ package br.com.psicologia.context.payment;
 
 import br.com.psicologia.context.payment.interfaces.IPaymentContextUser;
 import br.com.psicologia.context.user.UserContext;
+import br.com.psicologia.controller.dto.MakePaymentDto;
 import br.com.psicologia.repository.model.PaymentEntity;
 import br.com.psicologia.repository.model.SessionPackageEntity;
 import br.com.psicologia.repository.model.UserEntity;
@@ -79,8 +80,8 @@ public class PaymentContext implements IContext<PaymentEntity> {
         return iContextUser.countFiltered(securityContext, tenant, createSessionContext(securityContext, tenant), filter);
     }
 
-    public void makePayment(SecurityContext securityContext, String tenant, String paymentId) {
-        iContextUser.makePayment(securityContext, tenant, createSessionContext(securityContext, tenant), paymentId);
+    public void makePayment(SecurityContext securityContext, String tenant, MakePaymentDto makePaymentDto) {
+        iContextUser.makePayment(securityContext, tenant, createSessionContext(securityContext, tenant), makePaymentDto);
     }
 
     public List<PaymentEntity> findPaidBySessionPackage(SecurityContext securityContext, String tenant, UUID sessionPackageId) {

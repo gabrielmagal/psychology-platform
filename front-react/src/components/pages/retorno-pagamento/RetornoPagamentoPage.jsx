@@ -20,7 +20,7 @@ export default function RetornoPagamentoPage({ keycloak, realm }) {
     const enviarParaBackend = async () => {
         console.log('teste')
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/payment/confirmar`, {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/payment/confirm`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

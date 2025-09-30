@@ -25,6 +25,9 @@ public class MercadoPagoInfoContext implements IContext<MercadoPagoInfoEntity> {
     @Inject
     Instance<MercadoPagoInfoPsicologoContext> psicologoContext;
 
+    @Inject
+    Instance<MercadoPagoInfoPacienteContext> pacienteContext;
+
     private IMercadoPagoInfoContextUser iContextUser;
 
     public MercadoPagoInfoEntity save(SecurityContext securityContext, String tenant, MercadoPagoInfoEntity entity) {
@@ -73,7 +76,7 @@ public class MercadoPagoInfoContext implements IContext<MercadoPagoInfoEntity> {
         iContextUser = switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> administradorContext.get();
             case PSICOLOGO -> psicologoContext.get();
-            case PACIENTE -> throw new SecurityException("Sem permissão para executar essa ação.");
+            case PACIENTE -> pacienteContext.get();
         };
         return loggedUser;
     }

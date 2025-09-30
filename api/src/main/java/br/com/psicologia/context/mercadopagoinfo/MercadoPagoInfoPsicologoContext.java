@@ -185,9 +185,9 @@ public class MercadoPagoInfoPsicologoContext implements IMercadoPagoInfoContextU
                 .build();
 
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-                .success("https://909fb99ad600.ngrok-free.app/" + tenant + "/retorno-pagamento")
-                .failure("https://909fb99ad600.ngrok-free.app/" + tenant + "/retorno-pagamento?status=failure")
-                .pending("https://909fb99ad600.ngrok-free.app/" + tenant + "/retorno-pagamento?status=pending")
+                .success("https://d596adbd1347.ngrok-free.app/" + tenant + "/retorno-pagamento")
+                .failure("https://d596adbd1347.ngrok-free.app/" + tenant + "/retorno-pagamento?status=failure")
+                .pending("https://d596adbd1347.ngrok-free.app/" + tenant + "/retorno-pagamento?status=pending")
                 .build();
 
         PreferenceRequest request = PreferenceRequest.builder()

@@ -1,8 +1,14 @@
 package br.com.psicologia.context.payment;
 
 import br.com.psicologia.context.payment.interfaces.IPaymentContextUser;
+import br.com.psicologia.controller.dto.MakePaymentDto;
+import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
 import br.com.psicologia.repository.model.PaymentEntity;
 import br.com.psicologia.repository.model.UserEntity;
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.core.MPRequestOptions;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
 import core.repository.dao.GenericDao;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -120,20 +126,41 @@ public class PaymentAdministradorContext implements IPaymentContextUser {
     }
 
     @Override
-    public void makePayment(SecurityContext securityContext, String tenant, UserEntity loggedUser, String paymentId) {
+    public void makePayment(SecurityContext securityContext, String tenant, UserEntity loggedUser, MakePaymentDto makePaymentDto) {
         dao.defineSchema(tenant);
 
-        List<PaymentEntity> result = em.createQuery("""
+        PaymentEntity payment = em.createQuery("""
                 SELECT p FROM PaymentEntity p
                 WHERE p.paymentId = :paymentId
             """, PaymentEntity.class)
-            .setParameter("paymentId", paymentId)
-            .getResultList();
+                .setParameter("paymentId", makePaymentDto.getPaymentId())
+                .getSingleResult();
 
-        if (result.isEmpty()) {
-            throw new NotFoundException("Usuário com Keycloak ID não encontrado: " + paymentId);
+        if (payment == null) {
+            throw new NotFoundException("Pagamento pendente não encontrado com o ID: " + makePaymentDto.getPaymentId());
         }
 
-        dao.update(tenant, result.getFirst());
+        MercadoPagoInfoEntity mpConfig = dao.findById(tenant, payment.getSessionPackage().getPsychologistId(), MercadoPagoInfoEntity.class);
+
+        if (mpConfig == null || mpConfig.getAccessToken() == null) {
+            throw new IllegalStateException("Configuração Mercado Pago não encontrada (access token faltando).");
+        }
+
+        try {
+            MPRequestOptions requestOptions = MPRequestOptions.builder()
+                    .accessToken(mpConfig.getAccessToken())
+                    .build();
+
+            PaymentClient paymentClient = new PaymentClient();
+            com.mercadopago.resources.payment.Payment mpPayment = paymentClient.get(makePaymentDto.getPaymentId(), requestOptions);
+
+            payment.setPaid(true);
+            payment.setPaymentDate(mpPayment.getDateApproved().toLocalDate());
+
+        } catch (MPApiException | MPException e) {
+            throw new RuntimeException("Erro ao consultar pagamento Mercado Pago", e);
+        }
+
+        dao.update(tenant, payment);
     }
 }
