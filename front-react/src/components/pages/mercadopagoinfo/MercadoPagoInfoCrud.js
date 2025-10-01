@@ -1,7 +1,5 @@
 import EntityCrudPage from "../dynamic/EntityCrudPage";
 import {Roles} from "../../shared/Roles";
-import styles from "../dynamic/EntityCrudPage.module.css";
-import React from "react";
 
 export default function MercadoPagoInfoCrud({ keycloak, realm, onUnauthorized, onForbidden }) {
   return (

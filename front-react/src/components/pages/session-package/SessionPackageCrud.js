@@ -56,8 +56,17 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
                 },
             });
 
-            if (!res.ok) throw new Error("Erro ao iniciar pagamento");
-            const { paymentUrl } = await res.json();
+            if (!res.ok) {
+                throw new Error("Erro ao iniciar pagamento - " + res.status);
+            }
+
+            let paymentUrl = await res.text();
+            paymentUrl = paymentUrl.trim().replace(/^"|"$/g, "");
+
+            if (!paymentUrl) {
+                throw new Error("paymentUrl vazio.");
+            }
+
             window.location.href = paymentUrl;
         } catch (e) {
             alert("Erro ao redirecionar para pagamento.");

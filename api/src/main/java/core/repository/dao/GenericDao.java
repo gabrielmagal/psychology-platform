@@ -256,8 +256,7 @@ public class GenericDao implements IGenericDao {
         throw new IllegalArgumentException("Tipo não suportado: " + type.getName());
     }
 
-    public void defineSchema(String schema)
-    {
+    public void defineSchema(String schema) {
         schemaService.initSchema(schema);
         entityManager.createNativeQuery("SET search_path TO " + schema).executeUpdate();
     }

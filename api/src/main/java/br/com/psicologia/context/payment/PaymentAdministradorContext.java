@@ -133,11 +133,11 @@ public class PaymentAdministradorContext implements IPaymentContextUser {
                 SELECT p FROM PaymentEntity p
                 WHERE p.paymentId = :paymentId
             """, PaymentEntity.class)
-                .setParameter("paymentId", makePaymentDto.getPaymentId())
+                .setParameter("paymentId", makePaymentDto.getPreferenceId())
                 .getSingleResult();
 
         if (payment == null) {
-            throw new NotFoundException("Pagamento pendente não encontrado com o ID: " + makePaymentDto.getPaymentId());
+            throw new NotFoundException("Pagamento pendente não encontrado com o ID: " + makePaymentDto.getPreferenceId());
         }
 
         MercadoPagoInfoEntity mpConfig = dao.findById(tenant, payment.getSessionPackage().getPsychologistId(), MercadoPagoInfoEntity.class);
@@ -156,7 +156,6 @@ public class PaymentAdministradorContext implements IPaymentContextUser {
 
             payment.setPaid(true);
             payment.setPaymentDate(mpPayment.getDateApproved().toLocalDate());
-
         } catch (MPApiException | MPException e) {
             throw new RuntimeException("Erro ao consultar pagamento Mercado Pago", e);
         }

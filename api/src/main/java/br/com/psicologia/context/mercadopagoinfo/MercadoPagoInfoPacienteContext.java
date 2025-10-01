@@ -91,7 +91,7 @@ public class MercadoPagoInfoPacienteContext implements IMercadoPagoInfoContextUs
                 .unitPrice(new BigDecimal("150.00"))
                 .build();
 
-        String callbackBase = "https://d596adbd1347.ngrok-free.app/" + tenant + "/retorno-pagamento";
+        String callbackBase = "https://d6030e5ffd2d.ngrok-free.app/" + tenant + "/retorno-pagamento";
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                 .success(callbackBase)
                 .failure(callbackBase + "?status=failure")
