@@ -1,6 +1,6 @@
 package br.com.psicologia.context.mercadopagoinfo.interfaces;
 
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import core.context.IContextUser;

@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.PaymentDto;
-import br.com.psicologia.repository.model.PaymentEntity;
+import br.com.psicologia.model.PaymentEntity;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "jakarta", uses = {UserMapper.class, SessionPackageMapper.class})

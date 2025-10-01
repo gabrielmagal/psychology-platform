@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.AnnotationDto;
-import br.com.psicologia.repository.model.AnnotationEntity;
+import br.com.psicologia.model.AnnotationEntity;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "jakarta", uses = { SessionMapper.class })

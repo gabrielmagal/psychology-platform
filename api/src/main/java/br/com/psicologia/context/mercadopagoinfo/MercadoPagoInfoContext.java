@@ -2,8 +2,8 @@ package br.com.psicologia.context.mercadopagoinfo;
 
 import br.com.psicologia.context.mercadopagoinfo.interfaces.IMercadoPagoInfoContextUser;
 import br.com.psicologia.context.user.UserContext;
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContext;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -1,7 +1,7 @@
 package br.com.psicologia.service;
 
-import br.com.psicologia.repository.model.SessionRatingEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.SessionRatingEntity;
+import br.com.psicologia.model.UserEntity;
 import core.repository.dao.GenericDao;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

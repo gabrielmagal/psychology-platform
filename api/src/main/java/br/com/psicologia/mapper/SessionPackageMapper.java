@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.SessionPackageDto;
-import br.com.psicologia.repository.model.SessionPackageEntity;
+import br.com.psicologia.model.SessionPackageEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

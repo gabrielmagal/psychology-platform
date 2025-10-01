@@ -1,7 +1,7 @@
-package br.com.psicologia.repository.model;
+package br.com.psicologia.model;
 
-import br.com.psicologia.repository.enums.PaymentMethod;
 import br.com.psicologia.interceptor.AuditListener;
+import br.com.psicologia.model.enums.PaymentMethod;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;

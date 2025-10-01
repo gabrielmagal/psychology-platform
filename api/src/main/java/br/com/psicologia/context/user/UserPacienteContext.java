@@ -1,6 +1,6 @@
 package br.com.psicologia.context.user;
 
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContextUser;
 import core.repository.dao.GenericDao;
 import core.service.model.Filter;

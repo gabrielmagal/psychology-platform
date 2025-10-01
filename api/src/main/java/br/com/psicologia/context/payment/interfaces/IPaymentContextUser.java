@@ -1,8 +1,8 @@
 package br.com.psicologia.context.payment.interfaces;
 
 import br.com.psicologia.controller.dto.MakePaymentDto;
-import br.com.psicologia.repository.model.PaymentEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.PaymentEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContextUser;
 import jakarta.ws.rs.core.SecurityContext;
 

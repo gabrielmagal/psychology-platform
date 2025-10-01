@@ -1,13 +1,16 @@
-package br.com.psicologia.repository.model;
+package br.com.psicologia.model;
 
-import br.com.psicologia.repository.enums.UserType;
 import br.com.psicologia.interceptor.AuditListener;
+import br.com.psicologia.model.enums.UserType;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 

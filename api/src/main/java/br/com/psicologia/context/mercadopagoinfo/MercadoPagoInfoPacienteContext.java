@@ -2,11 +2,11 @@ package br.com.psicologia.context.mercadopagoinfo;
 
 import br.com.psicologia.context.mercadopagoinfo.interfaces.IMercadoPagoInfoContextUser;
 import br.com.psicologia.context.payment.PaymentContext;
-import br.com.psicologia.repository.enums.PaymentMethod;
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
-import br.com.psicologia.repository.model.PaymentEntity;
-import br.com.psicologia.repository.model.SessionPackageEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.enums.PaymentMethod;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.PaymentEntity;
+import br.com.psicologia.model.SessionPackageEntity;
+import br.com.psicologia.model.UserEntity;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;

@@ -1,6 +1,6 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.repository.enums.UserType;
+import br.com.psicologia.model.enums.UserType;
 import core.controller.dto.BaseDto;
 import core.notes.*;
 import jakarta.persistence.*;

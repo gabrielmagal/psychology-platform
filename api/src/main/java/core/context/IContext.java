@@ -1,6 +1,6 @@
 package core.context;
 
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.UserEntity;
 import core.service.model.Filter;
 import jakarta.ws.rs.core.SecurityContext;
 

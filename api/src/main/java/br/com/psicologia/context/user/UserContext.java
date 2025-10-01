@@ -1,7 +1,7 @@
 package br.com.psicologia.context.user;
 
-import br.com.psicologia.repository.model.UserEntity;
-import br.com.psicologia.service.KeycloakService;
+import br.com.psicologia.model.UserEntity;
+import core.service.KeycloakServiceImpl;
 import core.context.IContext;
 import core.context.IContextUser;
 import core.service.model.Filter;
@@ -17,7 +17,7 @@ import java.util.UUID;
 public class UserContext implements IContext<UserEntity> {
 
     @Inject
-    KeycloakService keycloakService;
+    KeycloakServiceImpl keycloakService;
 
     @Inject
     Instance<UserAdministradorContext> administradorContext;

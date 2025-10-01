@@ -1,4 +1,4 @@
-package br.com.psicologia.repository.enums;
+package br.com.psicologia.model.enums;
 
 import core.notes.ILabel;
 

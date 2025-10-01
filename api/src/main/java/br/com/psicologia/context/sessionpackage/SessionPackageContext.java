@@ -2,9 +2,9 @@ package br.com.psicologia.context.sessionpackage;
 
 import br.com.psicologia.context.sessionpackage.interfaces.ISessionPackageContextUser;
 import br.com.psicologia.context.user.UserContext;
-import br.com.psicologia.repository.model.PaymentEntity;
-import br.com.psicologia.repository.model.SessionPackageEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.PaymentEntity;
+import br.com.psicologia.model.SessionPackageEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContext;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;

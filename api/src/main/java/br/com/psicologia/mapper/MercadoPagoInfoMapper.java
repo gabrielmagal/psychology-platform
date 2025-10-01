@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.MercadoPagoInfoDto;
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

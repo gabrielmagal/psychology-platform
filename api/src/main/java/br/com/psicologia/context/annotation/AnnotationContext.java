@@ -1,8 +1,8 @@
 package br.com.psicologia.context.annotation;
 
 import br.com.psicologia.context.user.UserContext;
-import br.com.psicologia.repository.model.AnnotationEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.AnnotationEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContext;
 import core.context.IContextUser;
 import core.service.model.Filter;

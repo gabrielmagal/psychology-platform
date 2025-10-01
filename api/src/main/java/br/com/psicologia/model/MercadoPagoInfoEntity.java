@@ -1,4 +1,4 @@
-package br.com.psicologia.repository.model;
+package br.com.psicologia.model;
 
 import br.com.psicologia.interceptor.AuditListener;
 import core.repository.model.BaseEntity;

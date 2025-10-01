@@ -4,7 +4,7 @@ import br.com.psicologia.context.payment.PaymentContext;
 import br.com.psicologia.controller.dto.MakePaymentDto;
 import br.com.psicologia.controller.dto.PaymentDto;
 import br.com.psicologia.mapper.PaymentMapper;
-import br.com.psicologia.repository.model.PaymentEntity;
+import br.com.psicologia.model.PaymentEntity;
 import core.controller.AbstractBaseContextController;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;

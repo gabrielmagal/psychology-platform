@@ -1,10 +1,10 @@
 package br.com.psicologia.context.annotation;
 
 import br.com.psicologia.context.user.UserContext;
-import br.com.psicologia.repository.model.AnnotationEntity;
-import br.com.psicologia.repository.model.SessionEntity;
-import br.com.psicologia.repository.model.SessionPackageEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.AnnotationEntity;
+import br.com.psicologia.model.SessionEntity;
+import br.com.psicologia.model.SessionPackageEntity;
+import br.com.psicologia.model.UserEntity;
 import core.context.IContextUser;
 import core.repository.dao.GenericDao;
 import core.service.model.Filter;

@@ -2,11 +2,11 @@ package br.com.psicologia.context.payment;
 
 import br.com.psicologia.context.payment.interfaces.IPaymentContextUser;
 import br.com.psicologia.controller.dto.MakePaymentDto;
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
-import br.com.psicologia.repository.model.PaymentEntity;
-import br.com.psicologia.repository.model.SessionPackageEntity;
-import br.com.psicologia.repository.model.UserEntity;
-import br.com.psicologia.service.KeycloakService;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.PaymentEntity;
+import br.com.psicologia.model.SessionPackageEntity;
+import br.com.psicologia.model.UserEntity;
+import core.service.KeycloakServiceImpl;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.core.MPRequestOptions;
 import com.mercadopago.exceptions.MPApiException;
@@ -36,7 +36,7 @@ public class PaymentPacienteContext implements IPaymentContextUser {
     EntityManager em;
 
     @Inject
-    KeycloakService keycloakService;
+    KeycloakServiceImpl keycloakService;
 
     private final String MSG_UNAUTHORIZED = "Sem permissão para essa ação.";
 

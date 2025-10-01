@@ -1,5 +1,6 @@
-package br.com.psicologia.service;
+package core.service;
 
+import core.service.interfaces.TenantSchemaService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -10,10 +11,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 @ApplicationScoped
-public class TenantSchemaService {
+public class TenantSchemaServiceImpl implements TenantSchemaService {
 
     @Inject
-    DataSource dataSource;
+    private DataSource dataSource;
 
     private final Set<String> initializedSchemas = new HashSet<>();
 

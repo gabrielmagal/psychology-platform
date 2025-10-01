@@ -1,8 +1,8 @@
 package br.com.psicologia.context.user;
 
-import br.com.psicologia.repository.enums.UserType;
-import br.com.psicologia.repository.model.UserEntity;
-import br.com.psicologia.service.KeycloakService;
+import br.com.psicologia.model.enums.UserType;
+import br.com.psicologia.model.UserEntity;
+import core.service.KeycloakServiceImpl;
 import core.context.IContextUser;
 import core.repository.dao.GenericDao;
 import core.service.model.Filter;
@@ -31,7 +31,7 @@ public class UserPsicologoContext implements IContextUser<UserEntity> {
     GenericDao dao;
 
     @Inject
-    KeycloakService keycloakService;
+    KeycloakServiceImpl keycloakService;
 
     @Transactional
     public UserEntity save(SecurityContext securityContext, String tenant, UserEntity loggedUser, UserEntity entity) {

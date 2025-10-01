@@ -1,6 +1,6 @@
 package br.com.psicologia.interceptor;
 
-import br.com.psicologia.repository.model.AuditLogEntity;
+import br.com.psicologia.model.AuditLogEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import core.repository.model.BaseEntity;

@@ -1,4 +1,4 @@
-package br.com.psicologia.repository.model;
+package br.com.psicologia.model;
 
 import br.com.psicologia.interceptor.AuditListener;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
@@ -10,7 +10,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "session_package")

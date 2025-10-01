@@ -1,7 +1,7 @@
 package br.com.psicologia.context.sessionpackage.interfaces;
 
-import br.com.psicologia.repository.model.PaymentEntity;
-import br.com.psicologia.repository.model.SessionPackageEntity;
+import br.com.psicologia.model.PaymentEntity;
+import br.com.psicologia.model.SessionPackageEntity;
 import core.context.IContextUser;
 import jakarta.ws.rs.core.SecurityContext;
 

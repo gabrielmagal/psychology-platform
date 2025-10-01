@@ -3,7 +3,7 @@ package br.com.psicologia.controller;
 import br.com.psicologia.context.mercadopagoinfo.MercadoPagoInfoContext;
 import br.com.psicologia.controller.dto.MercadoPagoInfoDto;
 import br.com.psicologia.mapper.MercadoPagoInfoMapper;
-import br.com.psicologia.repository.model.MercadoPagoInfoEntity;
+import br.com.psicologia.model.MercadoPagoInfoEntity;
 import core.controller.AbstractBaseContextController;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;

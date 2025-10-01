@@ -1,6 +1,6 @@
 package core.repository.dao;
 
-import br.com.psicologia.service.TenantSchemaService;
+import core.service.interfaces.TenantSchemaService;
 import core.service.model.FilterParam;
 import core.repository.dao.interfaces.IGenericDao;
 import core.repository.model.BaseEntity;

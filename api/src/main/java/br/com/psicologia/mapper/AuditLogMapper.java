@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.AuditLogDto;
-import br.com.psicologia.repository.model.AuditLogEntity;
+import br.com.psicologia.model.AuditLogEntity;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "jakarta")

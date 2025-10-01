@@ -3,7 +3,7 @@ package br.com.psicologia.controller;
 import br.com.psicologia.context.user.UserContext;
 import br.com.psicologia.controller.dto.UserDto;
 import br.com.psicologia.mapper.UserMapper;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.UserEntity;
 import core.controller.AbstractBaseContextController;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;

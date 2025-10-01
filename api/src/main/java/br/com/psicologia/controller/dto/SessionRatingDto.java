@@ -1,7 +1,7 @@
 package br.com.psicologia.controller.dto;
 
-import br.com.psicologia.repository.model.SessionEntity;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.SessionEntity;
+import br.com.psicologia.model.UserEntity;
 import core.notes.ILabel;
 import core.notes.IShowField;
 import core.notes.IShowInForm;

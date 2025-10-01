@@ -3,7 +3,7 @@ package br.com.psicologia.controller;
 import br.com.psicologia.context.annotation.AnnotationContext;
 import br.com.psicologia.controller.dto.AnnotationDto;
 import br.com.psicologia.mapper.AnnotationMapper;
-import br.com.psicologia.repository.model.AnnotationEntity;
+import br.com.psicologia.model.AnnotationEntity;
 import core.controller.AbstractBaseContextController;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;

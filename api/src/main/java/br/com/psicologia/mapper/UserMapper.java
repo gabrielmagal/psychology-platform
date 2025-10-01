@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
 import br.com.psicologia.controller.dto.UserDto;
-import br.com.psicologia.repository.model.UserEntity;
+import br.com.psicologia.model.UserEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
