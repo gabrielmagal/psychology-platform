@@ -20,8 +20,6 @@ Visualização de relatórios de atendimento
 
 ## 🧑‍💻 Paciente
 
-Agendamento e visualização de consultas
-
 Acompanhamento de sessões realizadas
 
 Visualização de pagamentos e status financeiro
