@@ -36,12 +36,12 @@ A plataforma prioriza segurança, confidencialidade e organização, oferecendo 
 
 # Imagens
 
-![1](https://i.imgur.com/ojaH6pp)
-![2](https://i.imgur.com/zztHTyk)
-![3](https://i.imgur.com/fj1Pl3T)
-![4](https://i.imgur.com/VGxH0Z1)
-![5](https://i.imgur.com/KXnDdxH)
-![6](https://i.imgur.com/ZDdAOdW)
-![7](https://i.imgur.com/s82MIAW)
-![8](https://i.imgur.com/Ns65Apq)
-![9](https://i.imgur.com/V2YC94G)
+![1](https://i.imgur.com/ojaH6pp.png)
+![2](https://i.imgur.com/zztHTyk.png)
+![3](https://i.imgur.com/fj1Pl3T.png)
+![4](https://i.imgur.com/VGxH0Z1.png)
+![5](https://i.imgur.com/KXnDdxH.png)
+![6](https://i.imgur.com/ZDdAOdW.png)
+![7](https://i.imgur.com/s82MIAW.png)
+![8](https://i.imgur.com/Ns65Apq.png)
+![9](https://i.imgur.com/V2YC94G.png)
