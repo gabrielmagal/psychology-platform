@@ -1,0 +1,1 @@
+ALTER TABLE payment ADD COLUMN payment_id VARCHAR(255);

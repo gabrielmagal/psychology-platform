@@ -1,7 +1,7 @@
 package br.com.psicologia.mapper;
 
-import br.com.psicologia.controller.dto.MercadoPagoInfoDto;
-import br.com.psicologia.model.MercadoPagoInfoEntity;
+import br.com.psicologia.adapter.controller.dto.MercadoPagoInfoDto;
+import br.com.psicologia.domain.entity.MercadoPagoInfoEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -9,6 +9,7 @@ import org.mapstruct.Mapping;
 public interface MercadoPagoInfoMapper extends BaseMapper<MercadoPagoInfoDto, MercadoPagoInfoEntity> {
     @Mapping(target = "user.mercadoPagoInfo", ignore = true)
     MercadoPagoInfoEntity toEntity(MercadoPagoInfoDto dto);
+
     @Mapping(target = "user.mercadoPagoInfo", ignore = true)
     MercadoPagoInfoDto toDto(MercadoPagoInfoEntity entity);
 }

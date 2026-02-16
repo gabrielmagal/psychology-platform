@@ -1,6 +1,6 @@
 package core.service.interfaces;
 
-import br.com.psicologia.model.UserEntity;
+import br.com.psicologia.domain.entity.UserEntity;
 
 import java.util.Set;
 import java.util.UUID;
