@@ -1,26 +1,34 @@
 services:
   postgres:
-    container_name: postgres_container
+    container_name: postgres
     image: "postgres:18"
     env_file:
       - ./database.dev.env
-    networks:
-      - backend
     volumes:
       - ./db-data:/var/lib/postgresql/
     ports:
       - "5432:5432"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.postgres.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.postgres.entrypoints=postgres"
+      - "traefik.tcp.services.postgres.loadbalancer.server.port=5432"
     restart: always
+
   pgadmin:
-    container_name: pgadmin_container
+    container_name: pgadmin
     image: "dpage/pgadmin4:9.12"
     env_file:
       - ./database.dev.env
     ports:
       - "5050:80"
-    networks:
-      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.localhost`)"
+      - "traefik.http.routers.pgadmin.entrypoints=web"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     restart: always
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.3
     container_name: keycloak
@@ -33,9 +41,11 @@ services:
       KC_DB_USERNAME: arquitetura
       KC_DB_PASSWORD: admin
       KC_DB_SCHEMA: public
+      KC_HTTP_ENABLED: true
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
-      KC_HTTP_ENABLED: true
+      #KC_PROXY: edge
+      #KC_HOSTNAME: auth.localhost
     command: start
     ports:
       - "8083:8080"
@@ -43,10 +53,69 @@ services:
       - postgres
     #volumes:
     #  - ./keycloak/themes:/opt/keycloak/themes
-    networks:
-      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.localhost`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     restart: always
-networks:
-  backend:
-    name: backend
-    driver: bridge
+    
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "admin"]
+    restart: always
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redisinsight.rule=Host(`redis.localhost`)"
+      - "traefik.http.routers.redisinsight.entrypoints=web"
+      - "traefik.http.services.redisinsight.loadbalancer.server.port=5540"
+    restart: always
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - ./minio-data:/data
+    ports:
+      - "9000:9000"   # API (S3)
+      - "9001:9001"   # Console
+    command: server /data --console-address ":9001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`minio.localhost`)"
+      - "traefik.http.routers.minio.entrypoints=web"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
+    restart: always
+
+  traefik:
+    image: "traefik:latest"
+    container_name: traefik
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.postgres.address=:5432"
+    ports:
+      - "8080:8080"
+      - "443:443"
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      #- "./certs/:/certs/"
+      #- "./files/:/etc/traefik/files/"
+      #- "./traefik.yml:/etc/traefik/traefik.yml:ro"
+    restart: always

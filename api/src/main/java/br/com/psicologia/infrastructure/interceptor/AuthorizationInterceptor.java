@@ -64,76 +64,78 @@ public class AuthorizationInterceptor implements ContainerRequestFilter {
                         .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                         .build();
 
-                HttpResponse<String> httpResponse = HttpClient.newHttpClient().send(httpRequest, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> httpResponse = null;
+                try (var httpClient = HttpClient.newHttpClient()) {
+                    httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
-                if (httpResponse.statusCode() != 200) {
-                    String MSG_SEM_PERMISSAO = "Você não está autorizado a acessar este recurso.";
-                    requestContext.abortWith(returnAuthorization(Response.Status.UNAUTHORIZED, MSG_SEM_PERMISSAO));
-                    return;
-                }
-
-                JsonObject json = new JsonObject(httpResponse.body());
-                if (!json.getBoolean("active", false)) {
-                    String MSG_TOKEN_INATIVO = "Você não está autorizado a acessar este recurso. Token inativo.";
-                    requestContext.abortWith(returnAuthorization(Response.Status.UNAUTHORIZED, MSG_TOKEN_INATIVO));
-                    return;
-                }
-
-                String keycloakId = json.getString("sub");
-                requestContext.setProperty("keycloakId", keycloakId);
-
-                Set<String> userRoles = new HashSet<>();
-                JsonObject realmAccess = json.getJsonObject("realm_access");
-                if (realmAccess != null && realmAccess.containsKey("roles")) {
-                    realmAccess.getJsonArray("roles").forEach(role -> {
-                        if (role instanceof String) userRoles.add((String) role);
-                        else userRoles.add(role.toString());
-                    });
-                }
-
-                SecurityContext securityContext = new SecurityContext() {
-                    @Override
-                    public Principal getUserPrincipal() {
-                        return () -> keycloakId;
-                    }
-
-                    @Override
-                    public boolean isUserInRole(String role) {
-                        return userRoles.contains(role);
-                    }
-
-                    @Override
-                    public boolean isSecure() {
-                        return requestContext.getUriInfo().getRequestUri().getScheme().equalsIgnoreCase("https");
-                    }
-
-                    @Override
-                    public String getAuthenticationScheme() {
-                        return "Bearer";
-                    }
-                };
-                requestContext.setSecurityContext(securityContext);
-
-                Method method = resourceInfo.getResourceMethod();
-                Class<?> resourceClass = resourceInfo.getResourceClass();
-
-                IRequiredRoles methodRoles = method.getAnnotation(IRequiredRoles.class);
-                IRequiredRoles classRoles = resourceClass.getAnnotation(IRequiredRoles.class);
-
-                List<String> required = new ArrayList<>();
-                if (classRoles != null) required.addAll(Arrays.asList(classRoles.value()));
-                if (methodRoles != null) required.addAll(Arrays.asList(methodRoles.value()));
-
-                if (!required.isEmpty()) {
-                    boolean autorizado = required.stream().anyMatch(userRoles::contains);
-                    if (!autorizado) {
-                        requestContext.abortWith(Response.status(Response.Status.FORBIDDEN)
-                                .entity("Acesso negado. Roles exigidas: " + required)
-                                .build());
+                    if (httpResponse.statusCode() != 200) {
+                        String MSG_SEM_PERMISSAO = "Você não está autorizado a acessar este recurso.";
+                        requestContext.abortWith(returnAuthorization(Response.Status.UNAUTHORIZED, MSG_SEM_PERMISSAO));
                         return;
                     }
-                }
 
+                    JsonObject json = new JsonObject(httpResponse.body());
+                    if (!json.getBoolean("active", false)) {
+                        String MSG_TOKEN_INATIVO = "Você não está autorizado a acessar este recurso. Token inativo.";
+                        requestContext.abortWith(returnAuthorization(Response.Status.UNAUTHORIZED, MSG_TOKEN_INATIVO));
+                        return;
+                    }
+
+                    String keycloakId = json.getString("sub");
+                    requestContext.setProperty("keycloakId", keycloakId);
+
+                    Set<String> userRoles = new HashSet<>();
+                    JsonObject realmAccess = json.getJsonObject("realm_access");
+                    if (realmAccess != null && realmAccess.containsKey("roles")) {
+                        realmAccess.getJsonArray("roles").forEach(role -> {
+                            if (role instanceof String) userRoles.add((String) role);
+                            else userRoles.add(role.toString());
+                        });
+                    }
+
+                    SecurityContext securityContext = new SecurityContext() {
+                        @Override
+                        public Principal getUserPrincipal() {
+                            return () -> keycloakId;
+                        }
+
+                        @Override
+                        public boolean isUserInRole(String role) {
+                            return userRoles.contains(role);
+                        }
+
+                        @Override
+                        public boolean isSecure() {
+                            return requestContext.getUriInfo().getRequestUri().getScheme().equalsIgnoreCase("https");
+                        }
+
+                        @Override
+                        public String getAuthenticationScheme() {
+                            return "Bearer";
+                        }
+                    };
+                    requestContext.setSecurityContext(securityContext);
+
+                    Method method = resourceInfo.getResourceMethod();
+                    Class<?> resourceClass = resourceInfo.getResourceClass();
+
+                    IRequiredRoles methodRoles = method.getAnnotation(IRequiredRoles.class);
+                    IRequiredRoles classRoles = resourceClass.getAnnotation(IRequiredRoles.class);
+
+                    List<String> required = new ArrayList<>();
+                    if (classRoles != null) required.addAll(Arrays.asList(classRoles.value()));
+                    if (methodRoles != null) required.addAll(Arrays.asList(methodRoles.value()));
+
+                    if (!required.isEmpty()) {
+                        boolean autorizado = required.stream().anyMatch(userRoles::contains);
+                        if (!autorizado) {
+                            requestContext.abortWith(Response.status(Response.Status.FORBIDDEN)
+                                    .entity("Acesso negado. Roles exigidas: " + required)
+                                    .build());
+                            return;
+                        }
+                    }
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 String MSG_ERRO_INESPERADO = "Você não está autorizado a acessar este recurso. Erro inesperado.";
