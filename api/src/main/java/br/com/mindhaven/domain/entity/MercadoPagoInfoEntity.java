@@ -3,10 +3,7 @@ package br.com.mindhaven.domain.entity;
 import br.com.mindhaven.infrastructure.interceptor.AuditListener;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Instant;
 
@@ -16,6 +13,7 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @EntityListeners(AuditListener.class)
 public class MercadoPagoInfoEntity extends BaseEntity {
 
