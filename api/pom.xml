@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>br.com.aceitecargas</groupId>
+  <groupId>br.com.mindhaven</groupId>
   <artifactId>api</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <properties>
@@ -119,6 +119,16 @@
       <groupId>jakarta.inject</groupId>
       <artifactId>jakarta.inject-api</artifactId>
       <version>2.0.1</version>
+    </dependency>
+      <dependency>
+          <groupId>io.minio</groupId>
+          <artifactId>minio</artifactId>
+          <version>8.6.0</version>
+      </dependency>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.9.3</version>
     </dependency>
   </dependencies>
   <build>

@@ -1,6 +1,7 @@
 package core.service;
 
-import br.com.psicologia.domain.entity.UserEntity;
+import br.com.mindhaven.application.service.UserService;
+import br.com.mindhaven.domain.entity.UserEntity;
 import core.service.interfaces.ICrudService;
 import core.service.interfaces.KeycloakService;
 import core.service.model.Filter;
@@ -22,7 +23,7 @@ public abstract class AbstractCrudService<T extends BaseEntity> extends Abstract
     protected IGenericDao dao;
 
     @Inject
-    KeycloakService keycloakService;
+    UserService userService;
 
     @Context
     public HttpHeaders headers;
@@ -90,6 +91,6 @@ public abstract class AbstractCrudService<T extends BaseEntity> extends Abstract
 
     @Override
     public UserEntity getCurrentLoggedUser() {
-        return keycloakService.findByKeycloakId(headers.getHeaderString("Tenant"), securityContext.getUserPrincipal().getName());
+        return userService.findByKeycloakId(headers.getHeaderString("Tenant"), securityContext.getUserPrincipal().getName());
     }
 }

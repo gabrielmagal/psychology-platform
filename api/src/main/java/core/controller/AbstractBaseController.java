@@ -1,6 +1,6 @@
 package core.controller;
 
-import br.com.psicologia.mapper.BaseMapper;
+import br.com.mindhaven.mapper.BaseMapper;
 import core.service.AbstractEntityDescriptionService;
 import core.service.model.Filter;
 import core.service.model.FilterParam;
