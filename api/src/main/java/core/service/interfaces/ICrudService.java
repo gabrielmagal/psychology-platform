@@ -1,6 +1,6 @@
 package core.service.interfaces;
 
-import br.com.psicologia.domain.entity.UserEntity;
+import br.com.mindhaven.domain.entity.UserEntity;
 import core.service.model.Filter;
 import core.repository.model.BaseEntity;
 

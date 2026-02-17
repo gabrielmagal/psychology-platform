@@ -1,6 +1,6 @@
 package core.service;
 
-import br.com.psicologia.domain.entity.UserEntity;
+import br.com.mindhaven.domain.entity.UserEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import core.repository.dao.GenericDao;
