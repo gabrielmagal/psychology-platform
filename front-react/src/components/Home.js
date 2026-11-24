@@ -1,118 +1,170 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import styles from "./Home.module.css";
+import clinic from "./pages/clinic/Clinic.module.css";
 import { useRoles } from "./shared/UseRoles";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useApi, money, formatDate, STATUS_LABEL } from "./pages/clinic/clinicApi";
+
+function SessionLine({ item, isStaff, showDate }) {
+    return (
+        <li className={clinic.listItem}>
+            <span>
+                <strong>
+                    {showDate ? `${formatDate(item.date)} ` : ""}{item.startTime || "Sem horário"}
+                </strong>{" — "}
+                {isStaff ? item.patientName : item.psychologistName || item.title}
+            </span>
+            <span className={`${clinic.badge} ${clinic[`badge${item.status}`] || ""}`}>
+                {item.status === "AGENDADA" && item.confirmedAt ? "Confirmada" : STATUS_LABEL[item.status]}
+            </span>
+        </li>
+    );
+}
 
 export default function Home({ keycloak, realm }) {
     const navigate = useNavigate();
     const { isAdmin, isPsychologist, isPatient } = useRoles(keycloak);
+    const isStaff = isAdmin || isPsychologist;
+    const request = useApi({ keycloak, realm });
+    const [dashboard, setDashboard] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        request(`/clinic/dashboard`)
+            .then((data) => { if (!cancelled) setDashboard(data); })
+            // O painel é um resumo: se falhar, a tela inicial continua utilizável pelos atalhos.
+            .catch((err) => console.error("Erro ao carregar o painel", err));
+        return () => { cancelled = true; };
+    }, [request]);
+
+    const firstName = keycloak?.tokenParsed?.given_name || keycloak?.tokenParsed?.preferred_username || "";
 
     return (
         <div className={styles.container}>
             <div className={styles.welcomeMessage}>
-                {isAdmin && (
-                    <>
-                        <h2>👋 Bem-vindo, Administrador!</h2>
-                        <p>
-                            Você tem acesso total à plataforma. Gerencie usuários, sessões e
-                            acompanhe toda a operação com flexibilidade e controle.
-                        </p>
-                    </>
-                )}
-                {isPsychologist && (
-                    <>
-                        <h2>🧠 Olá, Psicólogo!</h2>
-                        <p>
-                            Aqui você pode gerenciar seus pacientes, registrar sessões e
-                            acompanhar o progresso terapêutico com praticidade e segurança.
-                        </p>
-                    </>
-                )}
-                {isPatient && (
-                    <>
-                        <h2>🙋‍♂️ Olá, Paciente!</h2>
-                        <p>
-                            Acompanhe sua jornada terapêutica, veja seus pacotes de sessões e
-                            mantenha-se conectado com seu processo de autoconhecimento.
-                        </p>
-                    </>
-                )}
+                <h2>Olá{firstName ? `, ${firstName}` : ""}!</h2>
+                {isAdmin && <p>Você tem acesso total à plataforma: usuários, agenda, financeiro e auditoria.</p>}
+                {isPsychologist && <p>Veja abaixo o seu dia e o que está pendente no consultório.</p>}
+                {isPatient && <p>Acompanhe suas sessões, confirme presença e registre como você está.</p>}
             </div>
+
+            {dashboard && (
+                <div className={clinic.stack} style={{ marginBottom: "2rem" }}>
+                    {isStaff && (
+                        <div className={clinic.grid}>
+                            <div className={clinic.stat}>
+                                <div className={clinic.statLabel}>Sessões hoje</div>
+                                <div className={clinic.statValue}>{dashboard.today.length}</div>
+                            </div>
+                            <div className={clinic.stat}>
+                                <div className={clinic.statLabel}>Sem confirmação (próximos 7 dias)</div>
+                                <div className={clinic.statValue}>{dashboard.unconfirmed}</div>
+                            </div>
+                            <div className={clinic.stat}>
+                                <div className={clinic.statLabel}>Recebido no mês</div>
+                                <div className={clinic.statValue}>{money(dashboard.receivedThisMonth)}</div>
+                            </div>
+                            <div className={clinic.stat}>
+                                <div className={clinic.statLabel}>A receber ({dashboard.debtors} pacotes)</div>
+                                <div className={clinic.statValue}>{money(dashboard.outstanding)}</div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={clinic.card}>
+                        <h3>Hoje</h3>
+                        {dashboard.today.length === 0 ? (
+                            <p className={clinic.muted}>Nenhuma sessão hoje.</p>
+                        ) : (
+                            <ul className={clinic.list}>
+                                {dashboard.today.map((item) => (
+                                    <SessionLine key={item.id} item={item} isStaff={isStaff} />
+                                ))}
+                            </ul>
+                        )}
+                        {dashboard.upcoming.length > 0 && (
+                            <>
+                                <h3 style={{ marginTop: "1.25rem" }}>Próximas sessões</h3>
+                                <ul className={clinic.list}>
+                                    {dashboard.upcoming.map((item) => (
+                                        <SessionLine key={item.id} item={item} isStaff={isStaff} showDate />
+                                    ))}
+                                </ul>
+                            </>
+                        )}
+                        <div className={clinic.actions}>
+                            <Link className={clinic.btn} to="/agenda">Abrir agenda</Link>
+                        </div>
+                    </div>
+
+                    {isStaff && dashboard.toClose?.length > 0 && (
+                        <div className={clinic.card}>
+                            <h3>Sessões passadas sem registro ({dashboard.toClose.length})</h3>
+                            <p className={clinic.muted}>
+                                Marque na agenda se foram realizadas, se houve falta ou se foram canceladas.
+                            </p>
+                            <ul className={clinic.list}>
+                                {dashboard.toClose.slice(0, 5).map((item) => (
+                                    <SessionLine key={item.id} item={item} isStaff showDate />
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {isPatient && dashboard.pendingRatings?.length > 0 && (
+                        <div className={clinic.card}>
+                            <h3>Conte como foi</h3>
+                            <p className={clinic.muted}>
+                                Você tem {dashboard.pendingRatings.length} sessão(ões) realizada(s) sem avaliação.
+                                Abra a sessão na agenda para avaliar.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className={styles.cardGrid}>
-                {(isAdmin || isPsychologist) && (
-                    <div className={styles.card} onClick={() => navigate("/usuarios")}>
-                        <h2>👥 Usuários</h2>
-                        <p>Gerencie pacientes e profissionais de forma organizada.</p>
-                    </div>
-                )}
-                <div className={styles.card} onClick={() => navigate("/sessions-package")}>
-                    <h2>🧠 Pacote de Sessões</h2>
-                    {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
-                    {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
-                    {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
+                <div className={styles.card} onClick={() => navigate("/agenda")}>
+                    <h2>🗓️ Agenda</h2>
+                    {isStaff
+                        ? <p>Agende sessões, registre presença e envie lembretes.</p>
+                        : <p>Veja suas sessões, confirme presença e entre no atendimento online.</p>}
                 </div>
-                {(isAdmin || isPsychologist) &&
-                    <div className={styles.card} onClick={() => navigate("/mercado-pago-info")}>
-                        <h2>🧠 Mercado Pago</h2>
-                        {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
-                        {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
-                        {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
+                {isStaff && (
+                    <div className={styles.card} onClick={() => navigate("/usuarios")}>
+                        <h2>👥 Pacientes e usuários</h2>
+                        <p>Cadastro, prontuário e contrato de cada paciente.</p>
                     </div>
-                }
-                {isAdmin &&
-                    <div className={styles.card} onClick={() => navigate("/audit-log")}>
-                        <h2>🧠 Auditoria</h2>
-                        {isAdmin && <p>Acompanhe todos os pacotes de sessões cadastrados no sistema.</p>}
-                        {isPsychologist && <p>Gerencie os pacotes de sessões dos seus pacientes com organização.</p>}
-                        {isPatient && <p>Veja seus pacotes de sessões e acompanhe seu histórico terapêutico.</p>}
+                )}
+                {isStaff && (
+                    <div className={styles.card} onClick={() => navigate("/sessions-package")}>
+                        <h2>🧠 Pacotes de Sessões</h2>
+                        <p>Pacotes contratados, sessões, anotações e pagamentos.</p>
                     </div>
-                }
-            </div>
-
-            <div className={styles.about}>
-                <h2>Sobre a Plataforma</h2>
-
-                {isAdmin && (
-                    <>
-                        <p>
-                            Esta plataforma foi concebida com o objetivo de oferecer controle total sobre o ambiente terapêutico digital. Como administrador, você pode acompanhar a operação em todos os níveis: desde o gerenciamento de usuários e permissões, até o controle sobre pacotes de sessões, pagamentos e segurança da informação.
-                        </p>
-                        <p>
-                            Nosso compromisso é garantir que os profissionais da saúde mental possam atuar com tranquilidade, sabendo que a infraestrutura está estável, segura e eficiente. Ao fornecer um ambiente robusto e intuitivo, você garante que os psicólogos e pacientes tenham uma experiência acolhedora e fluida.
-                        </p>
-                        <p>
-                            Com painéis claros, permissões bem definidas e rastreabilidade completa das ações, você terá total visibilidade sobre os dados e poderá tomar decisões com confiança e agilidade.
-                        </p>
-                    </>
                 )}
-
-                {isPsychologist && (
-                    <>
-                        <p>
-                            Esta plataforma foi desenvolvida para apoiar psicólogos em sua prática clínica com sensibilidade, organização e segurança. Sabemos que cada sessão representa um momento único na jornada do paciente — por isso, oferecemos ferramentas que facilitam o registro de anotações, o gerenciamento de pacotes de sessões, o acompanhamento do progresso e a comunicação ética com os pacientes.
-                        </p>
-                        <p>
-                            Ao centralizar seus atendimentos, documentos e históricos em um só lugar, você ganha tempo, reduz riscos e fortalece o vínculo terapêutico com mais presença e foco no cuidado.
-                        </p>
-                        <p>
-                            Além disso, com recursos intuitivos e suporte contínuo, você poderá manter sua agenda organizada e seu atendimento cada vez mais humanizado e eficaz.
-                        </p>
-                    </>
+                {isStaff && (
+                    <div className={styles.card} onClick={() => navigate("/financeiro")}>
+                        <h2>💰 Financeiro</h2>
+                        <p>Recebido no mês, saldo a receber e pacotes em aberto.</p>
+                    </div>
                 )}
-
                 {isPatient && (
-                    <>
-                        <p>
-                            A jornada do autoconhecimento é feita de pequenos passos — e você está dando um deles ao utilizar esta plataforma. Aqui, você poderá acompanhar seu histórico de sessões, visualizar pacotes contratados, manter-se conectado ao seu psicólogo e ter mais clareza sobre sua evolução pessoal e emocional.
-                        </p>
-                        <p>
-                            O acompanhamento psicológico é uma ferramenta poderosa para lidar com desafios emocionais, melhorar relacionamentos, entender sentimentos e fortalecer sua saúde mental. Ter um espaço seguro e privado para isso é essencial — e é exatamente isso que oferecemos aqui.
-                        </p>
-                        <p>
-                            Esta plataforma foi pensada para ser sua aliada: intuitiva, respeitosa com sua privacidade, e comprometida com seu bem-estar. Aproveite cada sessão como uma oportunidade de crescer, refletir e cuidar de si.
-                        </p>
-                    </>
+                    <div className={styles.card} onClick={() => navigate("/diario")}>
+                        <h2>🌤️ Diário de humor</h2>
+                        <p>Registre como você está entre uma sessão e outra.</p>
+                    </div>
+                )}
+                {isStaff && (
+                    <div className={styles.card} onClick={() => navigate("/mercado-pago-info")}>
+                        <h2>💳 Mercado Pago</h2>
+                        <p>Conecte sua conta para receber pagamentos online dos pacientes.</p>
+                    </div>
+                )}
+                {isAdmin && (
+                    <div className={styles.card} onClick={() => navigate("/audit-log")}>
+                        <h2>🔎 Auditoria</h2>
+                        <p>Histórico de quem criou, alterou ou removeu cada registro.</p>
+                    </div>
                 )}
             </div>
         </div>

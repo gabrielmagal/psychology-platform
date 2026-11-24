@@ -48,6 +48,11 @@ export default function Navigation({ keycloak, realm }) {
       <nav className={styles.navbar}>
         <div className={styles.left}>
           <Link to="/" className={styles.logo}>Psicologia</Link>
+          <Link to="/agenda">Agenda</Link>
+          {(isAdmin || isPsychologist) && <Link to="/usuarios">Pacientes</Link>}
+          {(isAdmin || isPsychologist) && <Link to="/sessions-package">Pacotes</Link>}
+          {(isAdmin || isPsychologist) && <Link to="/financeiro">Financeiro</Link>}
+          {isPatient && <Link to="/diario">Diário</Link>}
         </div>
 
         <div className={styles.right} ref={menuRef}>

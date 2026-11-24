@@ -50,6 +50,29 @@ public class UserEntity extends BaseEntity {
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 
+    /** Registro no Conselho Regional de Psicologia — sai nos recibos e declarações. */
+    @Column(name = "crp", length = 30)
+    private String crp;
+
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Column(name = "occupation")
+    private String occupation;
+
+    @Column(name = "emergency_contact_name")
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 50)
+    private String emergencyContactPhone;
+
+    /** Responsável legal, para paciente menor de idade. */
+    @Column(name = "guardian_name")
+    private String guardianName;
+
+    @Column(name = "guardian_phone", length = 50)
+    private String guardianPhone;
+
     @Transient
     private String profileImage;
 

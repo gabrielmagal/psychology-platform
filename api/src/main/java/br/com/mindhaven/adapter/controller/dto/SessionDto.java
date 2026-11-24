@@ -24,6 +24,37 @@ public class SessionDto extends BaseDto {
     @IShowInTable
     private LocalDate dateSession;
 
+    @ILabel("Horário")
+    @IShowInForm
+    @IShowInTable
+    private java.time.LocalTime startTime;
+
+    @ILabel("Duração (min)")
+    @IShowInForm
+    private Integer durationMinutes;
+
+    @ILabel("Situação")
+    @IShowInForm
+    @IShowInTable
+    private br.com.mindhaven.domain.entity.enums.SessionStatus status;
+
+    @ILabel("Modalidade")
+    @IShowInForm
+    @IShowInTable
+    private br.com.mindhaven.domain.entity.enums.SessionModality modality;
+
+    @ILabel("Link do atendimento online")
+    @IShowInForm
+    private String meetingLink;
+
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    private LocalDateTime confirmedAt;
+
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    private LocalDateTime remindedAt;
+
     @ILabel("Título")
     @IShowInForm
     @IShowInTable

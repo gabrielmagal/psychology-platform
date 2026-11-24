@@ -50,4 +50,9 @@ public class SessionPackageDto extends BaseDto {
     @IShowInForm
     @IShowInTable
     private Integer totalSessions;
+
+    @ILabel("Valor do Pacote (R$)")
+    @IShowInForm
+    @IShowInTable
+    private java.math.BigDecimal price;
 }

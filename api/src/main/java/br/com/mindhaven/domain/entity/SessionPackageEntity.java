@@ -51,4 +51,8 @@ public class SessionPackageEntity extends BaseEntity {
 
     @Column(name = "total_sessions")
     private Integer totalSessions;
+
+    /** Valor combinado do pacote inteiro; base do cálculo de saldo a receber. */
+    @Column(name = "price")
+    private java.math.BigDecimal price;
 }

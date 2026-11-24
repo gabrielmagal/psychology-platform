@@ -51,6 +51,21 @@ export default function UserProfilePage({ keycloak, realm, onUnauthorized, onFor
         }
     };
 
+    const exportMyData = async () => {
+        try {
+            const data = await request(`/clinic/my-data`);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "meus-dados.json";
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            showError(err);
+        }
+    };
+
     if (!metadata || !userData) {
         return (
             <>
@@ -82,6 +97,21 @@ export default function UserProfilePage({ keycloak, realm, onUnauthorized, onFor
                         allowedRolesToDelete={[]}
                         isNestedForm={false}
                     />
+                </CardContent>
+            </Card>
+
+            <Card sx={{ borderRadius: 4, boxShadow: 4, marginTop: 3 }}>
+                <CardContent>
+                    <h3 style={{ marginTop: 0 }}>Meus dados (LGPD)</h3>
+                    <p style={{ color: "#6c757d" }}>
+                        Baixe uma cópia de tudo o que a plataforma guarda sobre você: cadastro, sessões,
+                        pagamentos, diário de humor e consentimentos.
+                    </p>
+                    <button type="button" onClick={exportMyData}
+                            style={{ background: "#007bff", color: "#fff", border: "none", borderRadius: 6,
+                                     padding: "0.5rem 1rem", fontWeight: 600, cursor: "pointer" }}>
+                        Baixar meus dados
+                    </button>
                 </CardContent>
             </Card>
 

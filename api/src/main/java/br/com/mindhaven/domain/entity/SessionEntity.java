@@ -51,4 +51,42 @@ public class SessionEntity extends BaseEntity {
 
     @Column(name = "attended_at")
     private LocalDateTime attendedAt;
+
+    @Column(name = "start_time")
+    private java.time.LocalTime startTime;
+
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private br.com.mindhaven.domain.entity.enums.SessionStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modality")
+    private br.com.mindhaven.domain.entity.enums.SessionModality modality;
+
+    @Column(name = "meeting_link", length = 500)
+    private String meetingLink;
+
+    /** Quando o paciente confirmou que vai comparecer. */
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
+    /** Quando o psicólogo enviou o lembrete da sessão. */
+    @Column(name = "reminded_at")
+    private LocalDateTime remindedAt;
+
+    /** Registros antigos (e clientes que não enviam os campos novos) caem nos padrões. */
+    @PrePersist
+    @PreUpdate
+    void applyDefaults() {
+        if (status == null) {
+            status = attendedAt != null
+                    ? br.com.mindhaven.domain.entity.enums.SessionStatus.REALIZADA
+                    : br.com.mindhaven.domain.entity.enums.SessionStatus.AGENDADA;
+        }
+        if (modality == null) modality = br.com.mindhaven.domain.entity.enums.SessionModality.PRESENCIAL;
+        if (durationMinutes == null) durationMinutes = 50;
+    }
 }

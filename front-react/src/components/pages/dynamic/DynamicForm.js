@@ -208,6 +208,26 @@ export default function DynamicForm({
           }
 
 
+          // Horário (LocalTime): sem isto caía no campo de texto livre, e qualquer valor
+          // fora de HH:mm era rejeitado pelo backend só na hora de salvar.
+          if (type === "localtime") {
+            return (
+              <div className={styles.formGroup} key={key}>
+                <TextField
+                  type="time"
+                  label={meta.label || key}
+                  name={key}
+                  value={value ? String(value).slice(0, 5) : ""}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value || null })}
+                  required={meta.required}
+                  fullWidth
+                  variant="outlined"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </div>
+            );
+          }
+
           // Era `meta.type === ("boolean" || "Boolean")`: em JS o parêntese avalia para
           // "boolean" antes da comparação, então um campo `Boolean` (wrapper) caía no
           // input de texto em vez do seletor Sim/Não.

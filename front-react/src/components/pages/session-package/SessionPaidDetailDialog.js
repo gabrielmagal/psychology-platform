@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React from "react";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -84,6 +85,7 @@ export default function SessionPaidDetailDialog({
                                             <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "left" }}>Forma de Pagamento</th>
                                             <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "left" }}>Data</th>
                                             <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "right" }}>Valor</th>
+                                            <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6" }}></th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -98,6 +100,9 @@ export default function SessionPaidDetailDialog({
                                                 <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5", textAlign: "right" }}>
                                                     {formatBRL(p.amount)}
                                                 </td>
+                                                <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5", textAlign: "right" }}>
+                                                    {p.id && <Link to={`/documento/recibo/${p.id}`}>Recibo</Link>}
+                                                </td>
                                             </tr>
                                         ))}
                                         </tbody>
@@ -107,6 +112,7 @@ export default function SessionPaidDetailDialog({
                                             <td style={{ padding: "0.5rem", fontWeight: "bold", textAlign: "right", color: "#388e3c" }}>
                                                 {formatBRL(data.totalPaid)}
                                             </td>
+                                            <td></td>
                                         </tr>
                                         </tfoot>
                                     </table>

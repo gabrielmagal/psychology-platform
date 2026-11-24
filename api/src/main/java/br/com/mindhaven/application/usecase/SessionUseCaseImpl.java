@@ -4,6 +4,8 @@ import br.com.mindhaven.application.usecase.interfaces.SessionUseCase;
 import br.com.mindhaven.domain.entity.SessionEntity;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
+import br.com.mindhaven.application.BusinessException;
+import br.com.mindhaven.domain.entity.enums.SessionStatus;
 import br.com.mindhaven.domain.repository.SessionPackageRepository;
 import br.com.mindhaven.domain.repository.SessionRepository;
 import core.service.model.Filter;
@@ -32,7 +34,8 @@ public class SessionUseCaseImpl implements SessionUseCase {
                     pacote = sessionPackageRepository.findById(tenant, pacote.getId());
                     entity.setSessionPackage(pacote);
                 }
-                yield sessionRepository.save(tenant, entity);
+                assertNoConflict(tenant, entity);
+                    yield sessionRepository.save(tenant, entity);
             }
             case PSICOLOGO -> {
                 SessionPackageEntity pacote = entity.getSessionPackage();
@@ -41,6 +44,7 @@ public class SessionUseCaseImpl implements SessionUseCase {
                 }
                 if (pacote != null && pacote.getPsychologistId().equals(loggedUser.getId())) {
                     entity.setSessionPackage(pacote);
+                    assertNoConflict(tenant, entity);
                     yield sessionRepository.save(tenant, entity);
                 } else {
                     throw new SecurityException("Psicólogo só pode criar sessões nos próprios pacotes.");
@@ -58,7 +62,8 @@ public class SessionUseCaseImpl implements SessionUseCase {
                     pacote = sessionPackageRepository.findById(tenant, pacote.getId());
                     entity.setSessionPackage(pacote);
                 }
-                yield sessionRepository.update(tenant, entity);
+                assertNoConflict(tenant, entity);
+                    yield sessionRepository.update(tenant, entity);
             }
             case PSICOLOGO -> {
                 SessionPackageEntity pacote = entity.getSessionPackage();
@@ -67,6 +72,7 @@ public class SessionUseCaseImpl implements SessionUseCase {
                 }
                 if (pacote != null && pacote.getPsychologistId().equals(loggedUser.getId())) {
                     entity.setSessionPackage(pacote);
+                    assertNoConflict(tenant, entity);
                     yield sessionRepository.update(tenant, entity);
                 } else {
                     throw new SecurityException("Psicólogo só pode atualizar sessões dos próprios pacotes.");
@@ -74,6 +80,41 @@ public class SessionUseCaseImpl implements SessionUseCase {
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode atualizar sessões.");
         };
+    }
+
+    /**
+     * Impede duas sessões do mesmo psicólogo no mesmo horário. Só vale para sessão com
+     * horário definido; sessões canceladas não ocupam a agenda.
+     */
+    private void assertNoConflict(String tenant, SessionEntity entity) {
+        SessionPackageEntity pacote = entity.getSessionPackage();
+        if (entity.getDateSession() == null || entity.getStartTime() == null
+                || entity.getStatus() == SessionStatus.CANCELADA
+                || pacote == null || pacote.getPsychologistId() == null) {
+            return;
+        }
+
+        Filter filter = new Filter();
+        List<FilterParam> params = new ArrayList<>();
+        params.add(new FilterParam("dateSession", entity.getDateSession().toString()));
+        params.add(new FilterParam("sessionPackage.psychologistId", pacote.getPsychologistId().toString()));
+        filter.setFilterParams(params);
+
+        int start = entity.getStartTime().toSecondOfDay() / 60;
+        int end = start + (entity.getDurationMinutes() == null ? 50 : entity.getDurationMinutes());
+
+        for (SessionEntity other : sessionRepository.filteredFindPaged(tenant, filter, 0, 200)) {
+            if (other.getId().equals(entity.getId()) || other.getStartTime() == null
+                    || other.getStatus() == SessionStatus.CANCELADA) {
+                continue;
+            }
+            int otherStart = other.getStartTime().toSecondOfDay() / 60;
+            int otherEnd = otherStart + (other.getDurationMinutes() == null ? 50 : other.getDurationMinutes());
+            if (start < otherEnd && otherStart < end) {
+                throw BusinessException.conflict("Já existe uma sessão neste horário (começa às "
+                        + other.getStartTime().toString().substring(0, 5) + ").");
+            }
+        }
     }
 
     public SessionEntity findById(String tenant, UserEntity loggedUser, UUID id) {

@@ -59,6 +59,34 @@ public class UserDto extends BaseDto {
     @NotNull
     private LocalDate birthDate;
 
+    @ILabel("CRP (psicólogo)")
+    @IShowInForm
+    private String crp;
+
+    @ILabel("Endereço")
+    @IShowInForm
+    private String address;
+
+    @ILabel("Profissão")
+    @IShowInForm
+    private String occupation;
+
+    @ILabel("Contato de emergência")
+    @IShowInForm
+    private String emergencyContactName;
+
+    @ILabel("Telefone de emergência")
+    @IShowInForm
+    private String emergencyContactPhone;
+
+    @ILabel("Responsável legal (menor de idade)")
+    @IShowInForm
+    private String guardianName;
+
+    @ILabel("Telefone do responsável")
+    @IShowInForm
+    private String guardianPhone;
+
     @ILabel("Imagem")
     @IShowInForm
     @IShowInTable(value = false)

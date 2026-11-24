@@ -1,8 +1,10 @@
-import React, { Suspense, lazy, useState, useEffect } from "react";
+import React, { Suspense, lazy, useState, useEffect, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import AlertDialog from "./components/shared/dialog/AlertDialog";
 import {useRoles} from "./components/shared/UseRoles";
+import ConsentGate from "./components/pages/clinic/ConsentGate";
+import { ToastContainer } from "react-toastify";
 
 // Cada tela vira um chunk próprio, carregado só quando o usuário navega até ela.
 // Antes tudo — inclusive as telas de auditoria e de Mercado Pago, que a maioria dos
@@ -14,21 +16,29 @@ const SessionPackageCrud = lazy(() => import("./components/pages/session-package
 const AuditLogCrud = lazy(() => import("./components/pages/audit/AuditLogCrud"));
 const UserProfilePage = lazy(() => import("./components/pages/user/UserProfilePage"));
 const MercadoPagoInfoCrud = lazy(() => import("./components/pages/mercadopagoinfo/MercadoPagoInfoCrud"));
+const AgendaPage = lazy(() => import("./components/pages/clinic/AgendaPage"));
+const PatientRecordPage = lazy(() => import("./components/pages/clinic/PatientRecordPage"));
+const FinancePage = lazy(() => import("./components/pages/clinic/FinancePage"));
+const DocumentPage = lazy(() => import("./components/pages/clinic/DocumentPage"));
+const MoodDiaryPage = lazy(() => import("./components/pages/clinic/MoodDiaryPage"));
 
 function App({ keycloak, realm }) {
     const [alert, setAlert] = useState({ open: false, message: "" });
     const [doLogin, setDoLogin] = useState(false);
 
-    const handleUnauthorized = () => {
+    // Identidade estável: estas funções entram nas dependências dos efeitos das telas, e
+    // recriá-las a cada render do App faria cada tela recarregar seus dados em laço.
+    const handleUnauthorized = useCallback(() => {
         setAlert({ open: true, message: "Sessão expirada. Faça login novamente." });
         setDoLogin(true);
-    };
+    }, []);
 
-    const handleForbidden = () => {
+    const handleForbidden = useCallback(() => {
         setAlert({ open: true, message: "Você não tem permissão para essa ação." });
-    };
+    }, []);
 
-    const { isAdmin, isPsychologist } = useRoles(keycloak);
+    const { isAdmin, isPsychologist, isPatient } = useRoles(keycloak);
+    const clinicProps = { keycloak, realm, onUnauthorized: handleUnauthorized, onForbidden: handleForbidden };
 
     useEffect(() => {
         if (doLogin && !alert.open) {
@@ -94,9 +104,20 @@ function App({ keycloak, realm }) {
                         />
                     }
               />
+              <Route path="/agenda" element={<AgendaPage {...clinicProps} />} />
+              <Route path="/documento/:kind/:id" element={<DocumentPage {...clinicProps} />} />
+              { (isAdmin || isPsychologist) &&
+                  <Route path="/prontuario/:patientId" element={<PatientRecordPage {...clinicProps} />} />
+              }
+              { (isAdmin || isPsychologist) &&
+                  <Route path="/financeiro" element={<FinancePage {...clinicProps} />} />
+              }
+              { isPatient && <Route path="/diario" element={<MoodDiaryPage {...clinicProps} />} /> }
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>
+          <ConsentGate {...clinicProps} />
+          <ToastContainer position="bottom-right" autoClose={4000} />
           <AlertDialog
             open={alert.open}
             message={alert.message}
