@@ -24,7 +24,7 @@ export default function RetornoPagamentoPage({ keycloak, realm }) {
         setMensagem("Pagamento confirmado com sucesso!");
       } catch (err) {
         console.error(err);
-        setMensagem(extractCleanErrorMessage(err) || "Falha ao confirmar pagamento.");
+        setMensagem(err?.message || extractCleanErrorMessage(err) || "Falha ao confirmar pagamento.");
       }
     };
 

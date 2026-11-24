@@ -149,6 +149,12 @@ export default function Home({ keycloak, realm }) {
                     </div>
                 )}
                 {isPatient && (
+                    <div className={styles.card} onClick={() => navigate("/sessions-package")}>
+                        <h2>🧠 Meus pacotes</h2>
+                        <p>Veja seus pacotes, o que já foi pago e pague online.</p>
+                    </div>
+                )}
+                {isPatient && (
                     <div className={styles.card} onClick={() => navigate("/diario")}>
                         <h2>🌤️ Diário de humor</h2>
                         <p>Registre como você está entre uma sessão e outra.</p>

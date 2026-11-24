@@ -52,6 +52,7 @@ export default function Navigation({ keycloak, realm }) {
           {(isAdmin || isPsychologist) && <Link to="/usuarios">Pacientes</Link>}
           {(isAdmin || isPsychologist) && <Link to="/sessions-package">Pacotes</Link>}
           {(isAdmin || isPsychologist) && <Link to="/financeiro">Financeiro</Link>}
+          {isPatient && <Link to="/sessions-package">Meus pacotes</Link>}
           {isPatient && <Link to="/diario">Diário</Link>}
         </div>
 

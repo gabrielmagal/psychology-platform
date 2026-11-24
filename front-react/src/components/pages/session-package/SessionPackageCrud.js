@@ -11,7 +11,7 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
     const [loading, setLoading] = useState(false);
     const [sessionsTotal, setSessionsTotal] = useState(null);
     const [modalError, setModalError] = useState(null);
-    const { isAdmin, isPsychologist } = useRoles(keycloak);
+    const { isPatient } = useRoles(keycloak);
 
     // Estas chamadas usavam fetch cru: um 401 aqui não disparava o fluxo de sessão
     // expirada, e a mensagem real do backend era descartada.
@@ -53,7 +53,7 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
 
             window.location.href = paymentUrl;
         } catch (e) {
-            setModalError(extractCleanErrorMessage(e) || "Erro ao redirecionar para pagamento.");
+            setModalError(e?.message || "Erro ao redirecionar para pagamento.");
             setModalOpen(true);
             console.error(e);
         }
@@ -62,7 +62,7 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
     return (
         <>
             <EntityCrudPage
-                title="🧠 Pacote de Sessões"
+                title={isPatient ? "🧠 Meus Pacotes" : "🧠 Pacote de Sessões"}
                 resource="session-package"
                 keycloak={keycloak}
                 realm={realm}
@@ -70,32 +70,32 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
                 onForbidden={onForbidden}
                 renderExtraAction={
                     [
+                        // O paciente também consulta o que já pagou (e tira o recibo de cada pagamento).
                         (item) =>
                         (
-                            (isAdmin || isPsychologist) &&
-                            (
-                                <button
-                                    className={styles.actionBtn}
-                                    onClick={() => handleOpenModal(item)}
-                                >
-                                    Total Pago
-                                </button>
-                            )
+                            <button
+                                key="total-pago"
+                                className={styles.actionBtn}
+                                onClick={() => handleOpenModal(item)}
+                            >
+                                {isPatient ? "Meus pagamentos" : "Total Pago"}
+                            </button>
                         ),
                         (item) =>
                             (
                                 <button
+                                    key="pagar"
                                     className={styles.actionBtn}
                                     onClick={() => handlePaymentRedirect(item)}
                                 >
-                                    Efetuar Pagamento Mercado Pago
+                                    {isPatient ? "Pagar com Mercado Pago" : "Efetuar Pagamento Mercado Pago"}
                                 </button>
                             )
                     ]
                 }
                 allowedRolesToEdit={[Roles.ADMIN, Roles.PSYCHOLOGIST]}
                 allowedRolesToDelete={[Roles.ADMIN, Roles.PSYCHOLOGIST]}
-                allowedRolesToSubEntity={[Roles.ADMIN, Roles.PSYCHOLOGIST, Roles.PATIENT]}
+                allowedRolesToSubEntity={[Roles.ADMIN, Roles.PSYCHOLOGIST]}
             />
             <SessionPaidDetailDialog
                 open={modalOpen}

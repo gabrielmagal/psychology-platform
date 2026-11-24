@@ -7,7 +7,9 @@ import br.com.mindhaven.domain.repository.PaymentRepository;
 import br.com.mindhaven.adapter.controller.dto.MakePaymentDto;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
 import br.com.mindhaven.domain.entity.MercadoPagoInfoEntity;
+import br.com.mindhaven.application.BusinessException;
 import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.core.MPRequestOptions;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import core.service.model.Filter;
@@ -117,6 +119,11 @@ public class PaymentUseCaseImpl implements PaymentUseCase {
         params.add(new FilterParam("sessionPackage.id", sessionPackageId.toString()));
         params.add(new FilterParam("paid", "true"));
         filter.setFilterParams(params);
+        if (loggedUser.getUserType() == br.com.mindhaven.domain.entity.enums.UserType.PACIENTE) {
+            // O paciente consulta o que já pagou, mas só nos pacotes em que ele é o paciente.
+            params.add(new FilterParam("sessionPackage.patient.id", loggedUser.getId().toString()));
+            return paymentRepository.filteredFindPaged(tenant, filter, 0, Integer.MAX_VALUE);
+        }
         return filteredFindPaged(tenant, loggedUser, filter, 0, Integer.MAX_VALUE);
     }
 
@@ -126,6 +133,14 @@ public class PaymentUseCaseImpl implements PaymentUseCase {
         return pagos.stream().map(PaymentEntity::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * Confirma, no retorno do checkout, um pagamento iniciado pelo Mercado Pago.
+     *
+     * <p>A versão anterior marcava o pagamento como pago sem olhar a resposta do Mercado
+     * Pago: bastava chamar este endpoint com o id de qualquer pagamento existente. Agora o
+     * pagamento só é baixado se estiver <b>aprovado</b>, se pertencer a este pacote
+     * (referência externa) e se o valor conferir — e só por quem tem acesso ao pacote.
+     */
     @Override
     public void makePayment(String tenant, UserEntity loggedUser, MakePaymentDto makePaymentDto) {
         PaymentEntity payment = paymentRepository.findByPaymentId(tenant, makePaymentDto.getPreferenceId());
@@ -136,16 +151,45 @@ public class PaymentUseCaseImpl implements PaymentUseCase {
         if (sessionPackage == null || sessionPackage.getPsychologistId() == null) {
             throw new IllegalStateException("Pacote de sessão ou psicólogo não encontrado para o pagamento.");
         }
+        boolean allowed = switch (loggedUser.getUserType()) {
+            case ADMINISTRADOR -> true;
+            case PSICOLOGO -> loggedUser.getId().equals(sessionPackage.getPsychologistId());
+            case PACIENTE -> sessionPackage.getPatient() != null
+                    && loggedUser.getId().equals(sessionPackage.getPatient().getId());
+        };
+        if (!allowed) {
+            throw new SecurityException("Este pagamento não pertence a um pacote seu.");
+        }
+        if (payment.isPaid()) {
+            return; // retorno aberto de novo (F5): já está baixado.
+        }
+        if (makePaymentDto.getPaymentId() == null) {
+            throw BusinessException.conflict("O pagamento não foi concluído no Mercado Pago.");
+        }
         MercadoPagoInfoEntity mpConfig = paymentRepository.findMercadoPagoInfoByPsychologistId(tenant, sessionPackage.getPsychologistId());
         if (mpConfig == null || mpConfig.getAccessToken() == null) {
             throw new IllegalStateException("Configuração Mercado Pago não encontrada (access token faltando).");
         }
         try {
             PaymentClient paymentClient = new PaymentClient();
-            com.mercadopago.resources.payment.Payment mpPayment = paymentClient.get(makePaymentDto.getPaymentId());
-            boolean paid = true;
-            java.time.LocalDate paymentDate = mpPayment.getDateApproved() != null ? mpPayment.getDateApproved().toLocalDate() : null;
-            paymentRepository.updatePaidStatus(tenant, makePaymentDto.getPreferenceId(), paid, paymentDate);
+            MPRequestOptions requestOptions = MPRequestOptions.builder()
+                    .accessToken(mpConfig.getAccessToken())
+                    .build();
+            com.mercadopago.resources.payment.Payment mpPayment =
+                    paymentClient.get(makePaymentDto.getPaymentId(), requestOptions);
+            if (!"approved".equals(mpPayment.getStatus())) {
+                throw BusinessException.conflict("O pagamento ainda não foi aprovado pelo Mercado Pago.");
+            }
+            boolean samePackage = sessionPackage.getId().toString().equals(mpPayment.getExternalReference());
+            boolean sameAmount = mpPayment.getTransactionAmount() != null
+                    && mpPayment.getTransactionAmount().compareTo(payment.getAmount()) == 0;
+            if (!samePackage || !sameAmount) {
+                throw new SecurityException("O pagamento informado não corresponde a este pacote.");
+            }
+            java.time.LocalDate paymentDate = mpPayment.getDateApproved() != null
+                    ? mpPayment.getDateApproved().toLocalDate()
+                    : java.time.LocalDate.now();
+            paymentRepository.updatePaidStatus(tenant, makePaymentDto.getPreferenceId(), true, paymentDate);
         } catch (MPApiException | MPException e) {
             throw new RuntimeException("Erro ao consultar pagamento Mercado Pago", e);
         }

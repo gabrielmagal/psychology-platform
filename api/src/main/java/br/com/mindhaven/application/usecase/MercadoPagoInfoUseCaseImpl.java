@@ -5,6 +5,9 @@ import br.com.mindhaven.domain.entity.*;
 import br.com.mindhaven.domain.entity.enums.UserType;
 import br.com.mindhaven.domain.repository.MercadoPagoInfoRepository;
 import br.com.mindhaven.domain.repository.UserRepository;
+import br.com.mindhaven.domain.repository.PaymentRepository;
+import br.com.mindhaven.application.BusinessException;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import core.service.model.Filter;
 
 import java.util.List;
@@ -33,7 +36,15 @@ public class MercadoPagoInfoUseCaseImpl implements MercadoPagoInfoUseCase {
     private final PaymentUseCase paymentUseCase;
     private final SessionPackageUseCase sessionPackageUseCase;
 
-    public MercadoPagoInfoUseCaseImpl(MercadoPagoInfoRepository mercadoPagoInfoRepository, UserRepository userRepository, PaymentUseCase paymentUseCase, SessionPackageUseCase sessionPackageUseCase) {
+    private final PaymentRepository paymentRepository;
+    private final String frontendUrl;
+
+    public MercadoPagoInfoUseCaseImpl(MercadoPagoInfoRepository mercadoPagoInfoRepository, UserRepository userRepository,
+                                      PaymentUseCase paymentUseCase, SessionPackageUseCase sessionPackageUseCase,
+                                      PaymentRepository paymentRepository,
+                                      @ConfigProperty(name = "app.frontend-url") String frontendUrl) {
+        this.paymentRepository = paymentRepository;
+        this.frontendUrl = frontendUrl.replaceAll("/+$", "");
         this.mercadoPagoInfoRepository = mercadoPagoInfoRepository;
         this.userRepository = userRepository;
         this.paymentUseCase = paymentUseCase;
@@ -132,47 +143,83 @@ public class MercadoPagoInfoUseCaseImpl implements MercadoPagoInfoUseCase {
         }
     }
 
+    /**
+     * Abre um checkout do Mercado Pago para o saldo em aberto do pacote.
+     *
+     * <p>Quem pode: quem enxerga o pacote — o psicólogo dono, o administrador e o próprio
+     * paciente. O valor era fixo em R$ 150,00 e a URL de retorno apontava para um túnel de
+     * desenvolvimento; agora o valor é o saldo do pacote e o retorno vem da configuração
+     * ({@code app.frontend-url}).
+     */
     public String createPaymentPreference(String tenant, UserEntity loggedUser, UUID packageId) {
         SessionPackageEntity sessionPackage = sessionPackageUseCase.findById(tenant, loggedUser, packageId);
         if (sessionPackage == null) {
             throw new NotFoundException("Pacote não encontrado");
         }
+        if (sessionPackage.getPrice() == null) {
+            throw BusinessException.invalid(
+                    "Este pacote não tem valor definido. Peça ao psicólogo para preencher o valor do pacote.");
+        }
+        BigDecimal balance = sessionPackage.getPrice().subtract(paidSoFar(tenant, packageId));
+        if (balance.signum() <= 0) {
+            throw BusinessException.conflict("Este pacote já está quitado.");
+        }
         MercadoPagoInfoEntity original = mercadoPagoInfoRepository.findById(tenant, sessionPackage.getPsychologistId());
         if (original == null) {
-            throw new IllegalArgumentException("Configuração do Mercado Pago não encontrada.");
+            throw BusinessException.conflict("O psicólogo ainda não conectou uma conta do Mercado Pago.");
         }
+        String title = sessionPackage.getPackageTitle() == null || sessionPackage.getPackageTitle().isBlank()
+                ? "Pacote de Sessões"
+                : sessionPackage.getPackageTitle();
         PreferenceItemRequest item = PreferenceItemRequest.builder()
-                .title("Pacote de Sessões")
+                .title(title)
                 .quantity(1)
-                .unitPrice(new BigDecimal("150.00"))
+                .unitPrice(balance)
                 .build();
-        String callbackBase = "https://d6030e5ffd2d.ngrok-free.app/" + tenant + "/retorno-pagamento";
+        String callbackBase = frontendUrl + "/" + tenant + "/retorno-pagamento";
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                 .success(callbackBase)
                 .failure(callbackBase + "?status=failure")
                 .pending(callbackBase + "?status=pending")
                 .build();
-        PreferenceRequest request = PreferenceRequest.builder()
+        var requestBuilder = PreferenceRequest.builder()
                 .items(List.of(item))
                 .backUrls(backUrls)
-                .autoReturn("approved")
-                .build();
+                // Conferida na confirmação: o pagamento aprovado tem de ser deste pacote.
+                .externalReference(sessionPackage.getId().toString());
+        // O Mercado Pago recusa o retorno automático quando a URL de volta não é https.
+        if (callbackBase.startsWith("https://")) {
+            requestBuilder.autoReturn("approved");
+        }
         PreferenceClient client = new PreferenceClient();
         try {
             MPRequestOptions requestOptions = MPRequestOptions.builder()
                     .accessToken(original.getAccessToken())
                     .build();
-            Preference preference = client.create(request, requestOptions);
+            Preference preference = client.create(requestBuilder.build(), requestOptions);
             PaymentEntity payment = new PaymentEntity();
-            payment.setAmount(new BigDecimal("150.00"));
+            payment.setAmount(balance);
             payment.setSessionPackage(sessionPackage);
             payment.setPaymentId(preference.getId());
             payment.setPaymentMethod(PaymentMethod.OTHER);
-            paymentUseCase.save(tenant, loggedUser, payment);
+            payment.setObservation("Mercado Pago");
+            // Direto no repositório: o acesso ao pacote já foi verificado acima, e o paciente
+            // (que não pode lançar pagamentos manualmente) precisa registrar este pendente.
+            paymentRepository.save(tenant, payment);
             return preference.getInitPoint();
         } catch (MPException | MPApiException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private BigDecimal paidSoFar(String tenant, UUID packageId) {
+        Filter filter = new Filter();
+        filter.setFilterParams(new java.util.ArrayList<>(List.of(
+                new core.service.model.FilterParam("sessionPackage.id", packageId.toString()),
+                new core.service.model.FilterParam("paid", "true"))));
+        return paymentRepository.filteredFindPaged(tenant, filter, 0, Integer.MAX_VALUE).stream()
+                .map(PaymentEntity::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override

@@ -60,7 +60,14 @@ public class SessionPackageUseCaseImpl implements SessionPackageUseCase {
                     throw new SecurityException("Psicólogo só pode acessar pacotes próprios.");
                 }
             }
-            case PACIENTE -> throw new SecurityException("Paciente não pode acessar pacotes de sessão.");
+            // O paciente enxerga (e paga) os próprios pacotes; criar, alterar e excluir seguem
+            // restritos ao psicólogo.
+            case PACIENTE -> {
+                if (pacote.getPatient() != null && loggedUser.getId().equals(pacote.getPatient().getId())) {
+                    yield pacote;
+                }
+                throw new SecurityException("Paciente só pode acessar os próprios pacotes.");
+            }
         };
     }
 
@@ -92,7 +99,13 @@ public class SessionPackageUseCaseImpl implements SessionPackageUseCase {
                 filter.getFilterParams().add(new FilterParam("psychologistId", loggedUser.getId().toString()));
                 return sessionPackageRepository.filteredFindPaged(tenant, filter, page, size);
             }
-            case PACIENTE -> throw new SecurityException("Paciente não pode listar pacotes de sessão.");
+            case PACIENTE -> {
+                if (filter.getFilterParams() == null) {
+                    filter.setFilterParams(new ArrayList<>());
+                }
+                filter.getFilterParams().add(new FilterParam("patient", loggedUser.getId().toString()));
+                return sessionPackageRepository.filteredFindPaged(tenant, filter, page, size);
+            }
             default -> throw new SecurityException("Tipo de usuário não suportado.");
         }
     }
@@ -109,7 +122,13 @@ public class SessionPackageUseCaseImpl implements SessionPackageUseCase {
                 filter.getFilterParams().add(new FilterParam("psychologistId", loggedUser.getId().toString()));
                 return sessionPackageRepository.countFiltered(tenant, filter);
             }
-            case PACIENTE -> throw new SecurityException("Paciente não pode contar pacotes de sessão.");
+            case PACIENTE -> {
+                if (filter.getFilterParams() == null) {
+                    filter.setFilterParams(new ArrayList<>());
+                }
+                filter.getFilterParams().add(new FilterParam("patient", loggedUser.getId().toString()));
+                return sessionPackageRepository.countFiltered(tenant, filter);
+            }
             default -> throw new SecurityException("Tipo de usuário não suportado.");
         }
     }
