@@ -6,8 +6,22 @@ services:
       - ./database.dev.env
     volumes:
       - ./db-data:/var/lib/postgresql/
+      # Cria os bancos 'psychology' e 'keycloak' na primeira subida. Sem isso, era preciso
+      # criá-los à mão antes de a API e o Keycloak conseguirem conectar.
+      # (Scripts em docker-entrypoint-initdb.d só rodam com o diretório de dados vazio,
+      # então não afeta ambientes já existentes.)
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    # O Postgres usa memória compartilhada para ordenações e hash joins; 64 MB é o default
+    # do Docker e é pouco para consultas de relatório.
+    shm_size: 256mb
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.tcp.routers.postgres.rule=HostSNI(`*`)"
@@ -22,6 +36,9 @@ services:
       - ./database.dev.env
     ports:
       - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.localhost`)"
@@ -37,6 +54,7 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB_URL_HOST: postgres
       KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: keycloak
       KC_DB: postgres
       KC_DB_USERNAME: arquitetura
       KC_DB_PASSWORD: admin
@@ -44,13 +62,19 @@ services:
       KC_HTTP_ENABLED: true
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HEALTH_ENABLED: true
       #KC_PROXY: edge
       #KC_HOSTNAME: auth.localhost
     command: start
     ports:
       - "8083:8080"
+    # `depends_on` sozinho só espera o contêiner subir, não o banco aceitar conexão: o
+    # Keycloak subia antes do Postgres estar pronto e morria no boot.
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    # KC_HEALTH_ENABLED expõe /health/ready na porta de management (9000) para monitoração
+    # externa. Não há healthcheck aqui porque a imagem do Keycloak não traz curl/wget.
     #volumes:
     #  - ./keycloak/themes:/opt/keycloak/themes
     labels:
@@ -59,20 +83,29 @@ services:
       - "traefik.http.routers.keycloak.entrypoints=web"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     restart: always
-    
+
   redis:
-    image: redis:latest
+    # Tags fixadas: com `latest`, uma recriação de contêiner podia trazer uma major nova
+    # sem nenhuma mudança no repositório.
+    image: redis:8.2-alpine
     container_name: redis
     ports:
       - "6379:6379"
     command: ["redis-server", "--requirepass", "admin"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "admin", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
 
   redisinsight:
-    image: redis/redisinsight:latest
+    image: redis/redisinsight:2.70
     container_name: redisinsight
     ports:
       - "5540:5540"
+    depends_on:
+      - redis
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redisinsight.rule=Host(`redis.localhost`)"
@@ -81,7 +114,7 @@ services:
     restart: always
 
   minio:
-    image: minio/minio
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: minio
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -99,8 +132,29 @@ services:
       - "traefik.http.services.minio.loadbalancer.server.port=9001"
     restart: always
 
+  # Cria o bucket que a API espera encontrar. Antes o bucket precisava ser criado à mão no
+  # console; sem ele todo upload de foto de perfil falhava em silêncio.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: minio-init
+    depends_on:
+      - minio
+    # Tenta em laço em vez de depender de healthcheck: roda uma vez, sai, e não bloqueia
+    # nada se o MinIO demorar a aceitar conexão.
+    entrypoint: >
+      /bin/sh -c "
+      for i in $$(seq 1 30); do
+        if mc alias set local http://minio:9000 minioadmin minioadmin >/dev/null 2>&1; then
+          mc mb --ignore-existing local/mindhaven && echo 'bucket mindhaven pronto' && exit 0;
+        fi;
+        echo 'aguardando minio...'; sleep 2;
+      done;
+      echo 'minio nao respondeu a tempo'; exit 1
+      "
+    restart: "no"
+
   traefik:
-    image: "traefik:latest"
+    image: "traefik:v3.6"
     container_name: traefik
     command:
       #- "--log.level=DEBUG"
@@ -110,6 +164,9 @@ services:
       - "--entryPoints.web.address=:80"
       - "--entryPoints.postgres.address=:5432"
     ports:
+      # ATENÇÃO: o dashboard do Traefik publica a 8080, a mesma porta padrão da API
+      # (quarkus.http.port=8080). Rodando a API fora do Docker no mesmo host, uma das duas
+      # não sobe. Mude aqui ou em QUARKUS_HTTP_PORT.
       - "8080:8080"
       - "443:443"
       - "80:80"

@@ -8,6 +8,7 @@ import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 
@@ -17,6 +18,9 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Entity
 @Table(name = "user_info")
+// Permite ao Hibernate carregar os usuários referenciados por uma página inteira de
+// pacotes/sessões em poucas consultas, em vez de uma por registro.
+@BatchSize(size = 32)
 @Builder
 @EntityListeners(AuditListener.class)
 public class UserEntity extends BaseEntity {

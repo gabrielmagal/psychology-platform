@@ -3,9 +3,9 @@ package core.service;
 import br.com.mindhaven.application.service.UserService;
 import br.com.mindhaven.domain.entity.UserEntity;
 import core.service.interfaces.ICrudService;
-import core.service.interfaces.KeycloakService;
 import core.service.model.Filter;
 import core.repository.dao.interfaces.IGenericDao;
+import core.tenant.TenantIdentifier;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import core.repository.model.BaseEntity;
@@ -25,6 +25,9 @@ public abstract class AbstractCrudService<T extends BaseEntity> extends Abstract
     @Inject
     UserService userService;
 
+    @Inject
+    RequestScopedUserCache loggedUserCache;
+
     @Context
     public HttpHeaders headers;
 
@@ -39,58 +42,55 @@ public abstract class AbstractCrudService<T extends BaseEntity> extends Abstract
 
     @Override
     public T findById(UUID id) {
-        return dao.findById(headers.getHeaderString("Tenant"), id, entityClass);
+        return dao.findById(getTenant(), id, entityClass);
     }
 
     @Override
     public List<T> findAll() {
-        return dao.listAll(headers.getHeaderString("Tenant"), entityClass);
+        return dao.listAll(getTenant(), entityClass);
     }
 
     @Override
     public List<T> findAllPaged(int page, int size) {
-        return dao.findAllPaged(headers.getHeaderString("Tenant"), page, size, entityClass);
+        return dao.findAllPaged(getTenant(), page, size, entityClass);
     }
 
     @Transactional
     @Override
     public T save(T entity) {
-        String tenant = headers.getHeaderString("Tenant");
-        T saved = dao.update(tenant, entity);
-        return dao.findById(tenant, saved.getId(), entityClass);
+        return dao.update(getTenant(), entity);
     }
 
     @Transactional
     @Override
     public T update(T entity) {
-        String tenant = headers.getHeaderString("Tenant");
-        T saved = dao.update(tenant, entity);
-        return dao.findById(tenant, saved.getId(), entityClass);
+        return dao.update(getTenant(), entity);
     }
 
     @Transactional
     @Override
     public void delete(UUID id) {
-        dao.delete(headers.getHeaderString("Tenant"), id, entityClass);
+        dao.delete(getTenant(), id, entityClass);
     }
 
     @Override
     public List<T> filteredFindPaged(Filter filter, int page, int size) throws InvalidRoleValueException {
-        return dao.filteredFindPaged(headers.getHeaderString("Tenant"), filter, page, size, entityClass);
+        return dao.filteredFindPaged(getTenant(), filter, page, size, entityClass);
     }
 
     @Override
     public long countFiltered(Filter filter) {
-        return dao.countFiltered(headers.getHeaderString("Tenant"), filter, entityClass);
+        return dao.countFiltered(getTenant(), filter, entityClass);
     }
 
     @Override
     public String getTenant() {
-        return headers.getHeaderString("Tenant");
+        return TenantIdentifier.requireValid(headers.getHeaderString("Tenant"));
     }
 
     @Override
     public UserEntity getCurrentLoggedUser() {
-        return userService.findByKeycloakId(headers.getHeaderString("Tenant"), securityContext.getUserPrincipal().getName());
+        return loggedUserCache.get(() ->
+                userService.findByKeycloakId(getTenant(), securityContext.getUserPrincipal().getName()));
     }
 }

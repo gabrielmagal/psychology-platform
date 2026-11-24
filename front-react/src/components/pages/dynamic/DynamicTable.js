@@ -1,3 +1,4 @@
+import React, { useMemo } from "react"
 import styles from "./DynamicTable.module.css"
 import SubEntityButton from "./SubEntityButton"
 import dayjs from 'dayjs'
@@ -11,6 +12,8 @@ const DynamicTable = ({
                         onManageSubEntity,
                         keycloak,
                         realm,
+                        onUnauthorized,
+                        onForbidden,
                         renderExtraAction,
                         allowedRolesToEdit = [],
                         allowedRolesToDelete = [],
@@ -19,17 +22,23 @@ const DynamicTable = ({
   const userRoles = getUserRoles(keycloak);
   const hasAnyRole = (roles) => roles.length === 0 || roles.some((r) => userRoles.includes(r));
 
-  const subEntities = Object.entries(metadata.properties)
+  // Ambas as listas dependem só da metadata (estática): recalculá-las a cada render, junto
+  // com o Object.entries sobre o grafo inteiro, era trabalho repetido a cada digitação ou
+  // abertura de diálogo na tela.
+  const subEntities = useMemo(() => Object.entries(metadata.properties)
     .filter(([_, meta]) => meta.subEntity)
     .map(([key, meta]) => {
+      // Era `value?.ManyToOne`; o backend emite a chave em camelCase (`manyToOne`),
+      // então esta busca nunca encontrava nada e sempre caía no fallback.
       const parentField = Object.entries(meta.metadata?.properties || {})
-        .find(([_, value]) => value?.ManyToOne)?.[0] || key;
+        .find(([_, value]) => value?.manyToOne)?.[0] || key;
       return { key, label: meta.label, parentField, prop: meta }
-    });
+    }), [metadata]);
 
-  const fields = Object.entries(metadata.properties).filter(
-    ([_, meta]) => meta.showInTable
-  )
+  const fields = useMemo(
+    () => Object.entries(metadata.properties).filter(([_, meta]) => meta.showInTable),
+    [metadata]
+  );
 
   const renderValue = (item, key) => {
     const value = item[key]
@@ -81,8 +90,11 @@ const DynamicTable = ({
             </tr>
           </thead>
           <tbody>
+            {/* A chave era o índice da linha: ao trocar de página ou remover um registro,
+                o React reaproveitava as linhas antigas e o estado dos componentes de ação
+                ficava associado ao item errado. O id da entidade é estável. */}
             {data.map((item, index) => (
-              <tr key={index}>
+              <tr key={item.id ?? index}>
                 {fields.map(([key]) => (
                   <td key={key}>{renderValue(item, key)}</td>
                 ))}
@@ -104,6 +116,8 @@ const DynamicTable = ({
                             prop={prop}
                             keycloak={keycloak}
                             realm={realm}
+                            onUnauthorized={onUnauthorized}
+                            onForbidden={onForbidden}
                             onCreated={() => onManageSubEntity?.(prop, item)}
                             className={styles.subEntityBtn}
                             allowedRolesToEdit={allowedRolesToEdit}
@@ -129,4 +143,4 @@ const DynamicTable = ({
   )
 }
 
-export default DynamicTable
+export default React.memo(DynamicTable)

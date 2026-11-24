@@ -4,6 +4,7 @@ import styles from "./Navigation.module.css";
 import { FaUser, FaSignOutAlt, FaUserCircle } from "react-icons/fa";
 import { IoMdArrowDropdown } from "react-icons/io";
 import { useRoles } from "./shared/UseRoles";
+import { apiFetch } from "../utils/fetchWithAuth";
 
 export default function Navigation({ keycloak, realm }) {
   const user = keycloak?.tokenParsed?.preferred_username;
@@ -31,24 +32,16 @@ export default function Navigation({ keycloak, realm }) {
   }, []);
 
   useEffect(() => {
-    const fetchProfileImage = async () => {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/user/keycloak`, {
-          headers: {
-            Authorization: "Bearer " + keycloak.token,
-            Tenant: realm
-          },
-        });
-        const data = await res.json();
-        if (data.profileImage) {
-          setProfileImage(data.profileImage);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar imagem de perfil", err);
-      }
-    };
+    let cancelled = false;
 
-    fetchProfileImage();
+    apiFetch(`/user/keycloak`, { keycloak, realm })
+      .then((data) => {
+        if (!cancelled && data?.profileImage) setProfileImage(data.profileImage);
+      })
+      .catch((err) => console.error("Erro ao buscar imagem de perfil", err));
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line
   }, []);
 
   return (

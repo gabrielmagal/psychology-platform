@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import DynamicForm from "./DynamicForm";
 import DynamicTable from "./DynamicTable";
 import ConfirmDialog from "../../shared/dialog/ConfirmDialog";
 import ErrorDialog from "../../shared/dialog/ErrorDialog";
 import styles from "./EntityCrudPage.module.css";
 import { toast } from "react-toastify";
-import { fetchWithAuth } from "../../../utils/fetchWithAuth";
-import {getUserRoles} from "../../shared/Auth";
+import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
+import { getUserRoles } from "../../shared/Auth";
+
+const PAGE_SIZE = 5;
 
 export default function EntityCrudPage({
                                            title,
@@ -21,227 +23,102 @@ export default function EntityCrudPage({
                                            allowedRolesToSubEntity = []
     }) {
     const [items, setItems] = useState([]);
+    const [totalElements, setTotalElements] = useState(0);
     const [metadata, setMetadata] = useState(null);
     const [alertMessage, setAlertMessage] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [page, setPage] = useState(0);
-    const size = 5;
+    const [loading, setLoading] = useState(false);
 
-    const apiUrl = process.env.REACT_APP_API_URL;
+    // Cancela a busca anterior quando o usuário troca de página rapidamente, para que uma
+    // resposta atrasada não sobrescreva a página atual.
+    const inFlight = useRef(null);
 
-    const hasAnyRole = (roles) => {
-        const userRoles = getUserRoles(keycloak);
-        return roles.some(role => userRoles.includes(role));
+    const userRoles = getUserRoles(keycloak);
+    const hasAnyRole = (roles) => roles.some(role => userRoles.includes(role));
+
+    const request = useCallback(
+        (path, options) => apiFetch(path, { keycloak, realm, onUnauthorized, onForbidden, ...options }),
+        [keycloak, realm, onUnauthorized, onForbidden]
+    );
+
+    const showError = (err) => {
+        const message = extractCleanErrorMessage(err);
+        if (message) setAlertMessage(message);
     };
 
-    const fetchMetadata = async () => {
+    /**
+     * A descrição da entidade é derivada de anotações no backend: ela não muda entre uma
+     * página e outra. Estava no mesmo efeito da listagem, com `[page]` na lista de
+     * dependências, então cada clique em "Próxima" refazia essa chamada à toa.
+     */
+    useEffect(() => {
+        let cancelled = false;
+
+        request(`/${resource}/entity-description`)
+            .then((data) => { if (!cancelled) setMetadata(data); })
+            .catch(showError);
+
+        return () => { cancelled = true; };
+    }, [resource, request]);
+
+    const fetchItems = useCallback(async () => {
+        inFlight.current?.abort();
+        const controller = new AbortController();
+        inFlight.current = controller;
+
+        setLoading(true);
         try {
-            const res = await fetchWithAuth(
-                `${apiUrl}/${resource}/entity-description`,
-                {
-                    headers: {
-                        Authorization: "Bearer " + keycloak.token,
-                        Tenant: realm,
-                    },
-                },
-                {
-                    onUnauthorized,
-                    onForbidden
-                }
-            );
-
-            if (res.ok) {
-                const data = await res.json();
-                setMetadata(data);
-            }
-            else
-            {
-                let errorMsg = `Erro ${res.status}`;
-                try {
-                    const data = await res.json();
-                    if (data?.details) {
-                        errorMsg = data.details;
-                    } else if (data?.message) {
-                        errorMsg = data.message;
-                    }
-                } catch (e) {
-                    const fallbackText = await res.text();
-                    if (fallbackText) errorMsg = fallbackText;
-                }
-
-                if (res.status === 401 && onUnauthorized) onUnauthorized();
-                if (res.status === 403 && onForbidden) onForbidden();
-
-                throw new Error(errorMsg);
-            }
+            const data = await request(`/${resource}?page=${page}&size=${PAGE_SIZE}`, { signal: controller.signal });
+            const content = Array.isArray(data) ? data : data?.content || [];
+            setItems(content);
+            setTotalElements(Array.isArray(data) ? content.length : data?.totalElements ?? content.length);
         } catch (err) {
-            setAlertMessage(extractCleanErrorMessage(err));
+            showError(err);
+        } finally {
+            if (inFlight.current === controller) {
+                inFlight.current = null;
+                setLoading(false);
+            }
         }
-    };
+    }, [request, resource, page]);
 
-    const fetchItems = async () => {
-        try {
-            const res = await fetchWithAuth(`${apiUrl}/${resource}?page=${page}&size=${size}`,
-                {
-                    headers: {
-                        Authorization: "Bearer " + keycloak.token,
-                        Tenant: realm,
-                    },
-                },
-                {
-                    onUnauthorized,
-                    onForbidden
-                }
-            );
-
-            if (res.status === 401) {
-                toast.error("Sessão expirada.");
-                keycloak.logout();
-                return;
-            }
-
-            if (res.ok) {
-                const data = await res.json();
-                const content = Array.isArray(data) ? data : data.content || [];
-                setItems(content);
-            }
-            else
-            {
-                let errorMsg = `Erro ${res.status}`;
-                try {
-                    const data = await res.json();
-                    if (data?.details) {
-                        errorMsg = data.details;
-                    } else if (data?.message) {
-                        errorMsg = data.message;
-                    }
-                } catch (e) {
-                    const fallbackText = await res.text();
-                    if (fallbackText) errorMsg = fallbackText;
-                }
-
-                if (res.status === 401 && onUnauthorized) onUnauthorized();
-                if (res.status === 403 && onForbidden) onForbidden();
-
-                throw new Error(errorMsg);
-            }
-        } catch (err) {
-            setAlertMessage(extractCleanErrorMessage(err));
-        }
-    };
+    useEffect(() => {
+        fetchItems();
+        return () => inFlight.current?.abort();
+    }, [fetchItems]);
 
     const handleSubmit = async (item) => {
-        const method = item.id ? "PUT" : "POST";
-        const url = item.id
-            ? `${apiUrl}/${resource}/${item.id}`
-            : `${apiUrl}/${resource}`;
-
         try {
-            const res = await fetchWithAuth(url,
-            {
-                    method,
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: "Bearer " + keycloak.token,
-                        Tenant: realm,
-                    },
-                    body: JSON.stringify(item),
-                },
-                {
-                    onUnauthorized,
-                    onForbidden
-                }
+            await request(
+                item.id ? `/${resource}/${item.id}` : `/${resource}`,
+                { method: item.id ? "PUT" : "POST", body: item }
             );
-
-            if (res.ok) {
-                toast.success(`${resource} ${method === "POST" ? "criado" : "atualizado"} com sucesso!`);
-                fetchItems();
-            }
-            else
-            {
-                let errorMsg = `Erro ${res.status}`;
-                try {
-                    const data = await res.json();
-                    if (data?.details) {
-                        errorMsg = data.details;
-                    } else if (data?.message) {
-                        errorMsg = data.message;
-                    }
-                } catch (e) {
-                    const fallbackText = await res.text();
-                    if (fallbackText) errorMsg = fallbackText;
-                }
-
-                if (res.status === 401 && onUnauthorized) onUnauthorized();
-                if (res.status === 403 && onForbidden) onForbidden();
-
-                throw new Error(errorMsg);
-            }
+            toast.success(`${resource} ${item.id ? "atualizado" : "criado"} com sucesso!`);
+            fetchItems();
         } catch (err) {
-            setAlertMessage(extractCleanErrorMessage(err));
+            showError(err);
         }
     };
 
     const deletar = async (id) => {
         try {
-            const res = await fetchWithAuth(`${apiUrl}/${resource}/${id}`, {
-                method: "DELETE",
-                    headers: {
-                        Authorization: "Bearer " + keycloak.token,
-                        Tenant: realm,
-                    },
-                },
-                {
-                    onUnauthorized,
-                    onForbidden
-                }
-            );
-
-            if (res.ok) {
-                toast.success("Removido com sucesso!");
-                fetchItems();
-            }
-            else
-            {
-                let errorMsg = `Erro ${res.status}`;
-                try {
-                    const data = await res.json();
-                    if (data?.details) {
-                        errorMsg = data.details;
-                    } else if (data?.message) {
-                        errorMsg = data.message;
-                    }
-                } catch (e) {
-                    const fallbackText = await res.text();
-                    if (fallbackText) errorMsg = fallbackText;
-                }
-
-                if (res.status === 401 && onUnauthorized) onUnauthorized();
-                if (res.status === 403 && onForbidden) onForbidden();
-
-                throw new Error(errorMsg);
-            }
+            await request(`/${resource}/${id}`, { method: "DELETE" });
+            toast.success("Removido com sucesso!");
+            fetchItems();
         } catch (err) {
-            setAlertMessage(extractCleanErrorMessage(err));
+            showError(err);
         } finally {
             setConfirmDeleteId(null);
         }
     };
 
-    const extractCleanErrorMessage = (err) => {
-        if (typeof err?.message === "string") {
-            const match = err.message.match(/: (.+)$/);
-            return match ? match[1] : err.message;
-        }
-        return "Erro inesperado.";
-    };
-
-    useEffect(() => {
-        fetchMetadata();
-        fetchItems();
-    }, [page]);
+    // O botão "Próxima" se baseava em `items.length < size`, um palpite que trava na última
+    // página cheia e não sabe quantas páginas existem. O backend já devolve `totalElements`.
+    const totalPages = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
+    const isLastPage = page >= totalPages - 1;
 
     return (
         <div className={styles.container}>
@@ -294,6 +171,8 @@ export default function EntityCrudPage({
                     onDelete={(id) => setConfirmDeleteId(id)}
                     keycloak={keycloak}
                     realm={realm}
+                    onUnauthorized={onUnauthorized}
+                    onForbidden={onForbidden}
                     renderExtraAction={renderExtraAction}
                     allowedRolesToEdit={allowedRolesToEdit}
                     allowedRolesToDelete={allowedRolesToDelete}
@@ -304,15 +183,17 @@ export default function EntityCrudPage({
             <div className={styles.pagination}>
                 <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={page === 0}
+                    disabled={page === 0 || loading}
                     className={styles.pageBtn}
                 >
                     ⬅ Anterior
                 </button>
-                <span className={styles.pageInfo}>Página {page + 1}</span>
+                <span className={styles.pageInfo}>
+                    Página {page + 1} de {totalPages} ({totalElements} registros)
+                </span>
                 <button
                     onClick={() => setPage((p) => p + 1)}
-                    disabled={items.length < size}
+                    disabled={isLastPage || loading}
                     className={styles.pageBtn}
                 >
                     Próxima ➡

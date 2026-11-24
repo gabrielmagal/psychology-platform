@@ -17,7 +17,11 @@ import DynamicForm from "./DynamicForm";
 import DynamicTable from "./DynamicTable";
 import ConfirmDialog from "../../shared/dialog/ConfirmDialog";
 import ErrorDialog from "../../shared/dialog/ErrorDialog";
-import {getUserRoles} from "../../shared/Auth";
+import { getUserRoles } from "../../shared/Auth";
+import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
+import { useDebouncedCallback } from "../../../utils/useDebouncedCallback";
+
+const PAGE_SIZE = 10;
 
 const SubEntityButton = ({
   label,
@@ -27,6 +31,11 @@ const SubEntityButton = ({
   realm,
   onCreated,
   className,
+  // Antes o componente usava onUnauthorized/onForbidden nos blocos de erro SEM recebê-los
+  // como props: qualquer resposta 4xx/5xx estourava ReferenceError e a mensagem real do
+  // backend virava um "Erro inesperado".
+  onUnauthorized,
+  onForbidden,
   allowedRolesToEdit = [],
   allowedRolesToDelete = [],
   allowedRolesToSubEntity = []
@@ -45,9 +54,6 @@ const SubEntityButton = ({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("md"));
 
-  const apiUrl = process.env.REACT_APP_API_URL;
-  const pageSize = 10;
-
   const hasAnyRole = (roles) => {
     const userRoles = getUserRoles(keycloak);
     return roles.some(role => userRoles.includes(role));
@@ -63,52 +69,34 @@ const SubEntityButton = ({
     console.warn("Não foi possível determinar o campo pai (ManyToOne/OneToOne) para SubEntity.");
   }
 
+  const basePath = prop.path || `/${prop.relatedType}`;
+
+  const request = (path, options) =>
+    apiFetch(path, { keycloak, realm, onUnauthorized, onForbidden, ...options });
+
+  const showError = (err) => {
+    const message = extractCleanErrorMessage(err);
+    if (message) setAlertMessage(message);
+  };
+
   const loadSubEntities = async (page = 1, search = "") => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${apiUrl}${prop.path || `/${prop.relatedType}`}?${parentField}=${parentId}&page=${page - 1}&size=${pageSize}&search=${encodeURIComponent(search)}`,
-        {
-          headers: {
-            Authorization: keycloak?.token ? `Bearer ${keycloak.token}` : undefined,
-            Tenant: realm,
-          },
-        }
+      const json = await request(
+        `${basePath}?${parentField}=${parentId}&page=${page - 1}&size=${PAGE_SIZE}&search=${encodeURIComponent(search)}`
       );
-
-      if (res.ok) {
-        const json = await res.json();
-        const content = json.content || [];
-        setSubData(content);
-        setTotalPages(json.totalPages || Math.ceil((json.totalElements || content.length) / pageSize));
-      }
-      else
-      {
-        let errorMsg = `Erro ${res.status}`;
-        try {
-          const data = await res.json();
-          if (data?.details) {
-            errorMsg = data.details;
-          } else if (data?.message) {
-            errorMsg = data.message;
-          }
-        } catch (e) {
-          const fallbackText = await res.text();
-          if (fallbackText) errorMsg = fallbackText;
-        }
-
-        if (res.status === 401 && onUnauthorized) onUnauthorized();
-        if (res.status === 403 && onForbidden) onForbidden();
-
-        throw new Error(errorMsg);
-      }
-
+      const content = json?.content || [];
+      setSubData(content);
+      setTotalPages(Math.max(1, Math.ceil((json?.totalElements ?? content.length) / PAGE_SIZE)));
     } catch (err) {
-      setAlertMessage(extractCleanErrorMessage(err));
+      showError(err);
     } finally {
       setLoading(false);
     }
   };
+
+  // Buscar a cada tecla gerava uma requisição por caractere digitado; espera a pausa.
+  const debouncedSearch = useDebouncedCallback((value) => loadSubEntities(1, value), 350);
 
   const handleOpen = async () => {
     await loadSubEntities();
@@ -123,47 +111,16 @@ const SubEntityButton = ({
     };
 
     try {
-      const res = await fetch(
-        `${apiUrl}${prop.path || `/${prop.relatedType}`}${isEdit ? `/${editingItem.id}` : ""}`,
-        {
-          method: isEdit ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: keycloak?.token ? `Bearer ${keycloak.token}` : undefined,
-            Tenant: realm,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (res.ok) {
-        setShowForm(false);
-        setEditingItem(null);
-        await loadSubEntities(page, search);
-        if (onCreated) onCreated();
-      }
-      else
-      {
-        let errorMsg = `Erro ${res.status}`;
-        try {
-          const data = await res.json();
-          if (data?.details) {
-            errorMsg = data.details;
-          } else if (data?.message) {
-            errorMsg = data.message;
-          }
-        } catch (e) {
-          const fallbackText = await res.text();
-          if (fallbackText) errorMsg = fallbackText;
-        }
-
-        if (res.status === 401 && onUnauthorized) onUnauthorized();
-        if (res.status === 403 && onForbidden) onForbidden();
-
-        throw new Error(errorMsg);
-      }
+      await request(`${basePath}${isEdit ? `/${editingItem.id}` : ""}`, {
+        method: isEdit ? "PUT" : "POST",
+        body: payload,
+      });
+      setShowForm(false);
+      setEditingItem(null);
+      await loadSubEntities(page, search);
+      if (onCreated) onCreated();
     } catch (err) {
-      setAlertMessage(extractCleanErrorMessage(err));
+      showError(err);
     }
   };
 
@@ -178,50 +135,12 @@ const SubEntityButton = ({
 
   const handleDeleteConfirmed = async () => {
     try {
-      const res = await fetch(
-          `${apiUrl}${prop.path || `/${prop.relatedType}`}/${confirmingItemId}`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: keycloak?.token ? `Bearer ${keycloak.token}` : undefined,
-              Tenant: realm,
-            },
-          }
-      );
-
-      if (!res.ok) {
-        let errorMsg = `Erro ${res.status}`;
-        try {
-          const data = await res.json();
-          if (data?.details) {
-            errorMsg = data.details;
-          } else if (data?.message) {
-            errorMsg = data.message;
-          }
-        } catch (e) {
-          const fallbackText = await res.text();
-          if (fallbackText) errorMsg = fallbackText;
-        }
-
-        if (res.status === 401 && onUnauthorized) onUnauthorized();
-        if (res.status === 403 && onForbidden) onForbidden();
-
-        throw new Error(errorMsg);
-      }
-
+      await request(`${basePath}/${confirmingItemId}`, { method: "DELETE" });
       await loadSubEntities(page, search);
     } catch (err) {
-      setAlertMessage(extractCleanErrorMessage(err));
+      showError(err);
     }
     setConfirmingItemId(null);
-  };
-
-  const extractCleanErrorMessage = (err) => {
-    if (typeof err?.message === "string") {
-      const match = err.message.match(/: (.+)$/);
-      return match ? match[1] : err.message.replace(/Error id .*?, /, "");
-    }
-    return "Erro inesperado.";
   };
 
   return (
@@ -285,8 +204,8 @@ const SubEntityButton = ({
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
-                    loadSubEntities(1, e.target.value);
                     setPage(1);
+                    debouncedSearch(e.target.value);
                   }}
                   style={{ marginRight: "auto", width: "300px" }}
                 />

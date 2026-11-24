@@ -1,6 +1,5 @@
 package br.com.mindhaven.infrastructure.persistence;
 
-import br.com.mindhaven.domain.entity.SessionEntity;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
 import br.com.mindhaven.domain.repository.SessionPackageRepository;
 import core.repository.dao.GenericDao;
@@ -33,7 +32,9 @@ public class SessionPackageRepositoryImpl implements SessionPackageRepository {
 
     @Override
     public void delete(String tenant, UUID id) {
-        dao.delete(tenant, id, SessionEntity.class);
+        // Deletava SessionEntity.class: excluir um pacote apagava (quando muito) uma sessão
+        // com o mesmo id — normalmente nada — e o pacote continuava existindo.
+        dao.delete(tenant, id, SessionPackageEntity.class);
     }
 
     @Override

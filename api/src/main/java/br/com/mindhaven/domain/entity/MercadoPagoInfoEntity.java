@@ -1,6 +1,7 @@
 package br.com.mindhaven.domain.entity;
 
 import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import core.notes.ISensitive;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -22,9 +23,13 @@ public class MercadoPagoInfoEntity extends BaseEntity {
     @JoinColumn(name = "id")
     private UserEntity user;
 
+    // Credenciais do Mercado Pago: um audit_log vazado não pode valer como um vazamento
+    // de tokens de pagamento.
+    @ISensitive
     @Column(name = "access_token", nullable = false, length = 255)
     private String accessToken;
 
+    @ISensitive
     @Column(name = "refresh_token", length = 255)
     private String refreshToken;
 

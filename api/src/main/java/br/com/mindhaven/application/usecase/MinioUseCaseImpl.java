@@ -5,8 +5,10 @@ import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -15,6 +17,10 @@ import java.util.Base64;
 
 @ApplicationScoped
 public class MinioUseCaseImpl implements MinioUseCase {
+
+    private static final Logger LOG = Logger.getLogger(MinioUseCaseImpl.class);
+
+    private volatile MinioClient client;
 
     @ConfigProperty(name = "minio.endpoint")
     String endpoint;
@@ -76,10 +82,38 @@ public class MinioUseCaseImpl implements MinioUseCase {
         }
     }
 
+    /**
+     * O cliente era reconstruído a cada chamada. Cada {@link MinioClient} carrega um OkHttp
+     * próprio, com pool de conexões e thread pool próprios — então listar uma página de
+     * usuários (que busca a foto de cada um) criava e descartava um cliente HTTP por linha,
+     * sem reaproveitar nenhuma conexão. Uma instância só, criada sob demanda, resolve.
+     */
     private MinioClient getClient() {
-        return MinioClient.builder()
-                .endpoint(endpoint)
-                .credentials(accessKey, secretKey)
-                .build();
+        MinioClient local = client;
+        if (local == null) {
+            synchronized (this) {
+                local = client;
+                if (local == null) {
+                    local = MinioClient.builder()
+                            .endpoint(endpoint)
+                            .credentials(accessKey, secretKey)
+                            .build();
+                    client = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    @PreDestroy
+    void close() {
+        MinioClient local = client;
+        if (local != null) {
+            try {
+                local.close();
+            } catch (Exception e) {
+                LOG.debug("Falha ao encerrar o cliente MinIO", e);
+            }
+        }
     }
 }

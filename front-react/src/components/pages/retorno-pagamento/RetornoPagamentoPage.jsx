@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
 
 export default function RetornoPagamentoPage({ keycloak, realm }) {
   const [status, setStatus] = useState(null);
@@ -18,27 +19,17 @@ export default function RetornoPagamentoPage({ keycloak, realm }) {
     setStatus(dados.status);
 
     const enviarParaBackend = async () => {
-        console.log('teste')
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/payment/confirm`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + keycloak.token,
-            Tenant: realm,
-          },
-          body: JSON.stringify(dados),
-        });
-        if (!res.ok) throw new Error("Erro ao confirmar pagamento");
-        const json = await res.json();
+        await apiFetch(`/payment/confirm`, { keycloak, realm, method: "POST", body: dados });
         setMensagem("Pagamento confirmado com sucesso!");
       } catch (err) {
         console.error(err);
-        setMensagem("Falha ao confirmar pagamento.");
+        setMensagem(extractCleanErrorMessage(err) || "Falha ao confirmar pagamento.");
       }
     };
 
     enviarParaBackend();
+    // eslint-disable-next-line
   }, [keycloak]);
 
   return (

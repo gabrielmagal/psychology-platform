@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Autocomplete,
   Box,
@@ -22,6 +22,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import styles from "./DynamicForm.module.css";
 import { fetchWithAuth } from "../../../utils/fetchWithAuth";
+import { useDebouncedCallback } from "../../../utils/useDebouncedCallback";
 
 export default function DynamicForm({
                                       metadata,
@@ -84,7 +85,7 @@ export default function DynamicForm({
     }));
   };
 
-  const fetchOptions = async (relatedType, key, search = "") => {
+  const fetchOptions = useCallback(async (relatedType, key, search = "") => {
     try {
       const res = await fetchWithAuth(`${apiUrl}/${relatedType}?page=0&size=10&search=${encodeURIComponent(search)}`,
         {
@@ -107,7 +108,11 @@ export default function DynamicForm({
     } catch (err) {
       console.error("Erro ao carregar opções para", key, err);
     }
-  };
+  }, [apiUrl, keycloak, realm, onUnauthorized, onForbidden]);
+
+  // A busca do autocomplete era disparada a cada tecla: digitar "Maria" gerava quatro
+  // requisições, três delas já obsoletas ao chegar. Agora só dispara depois da pausa.
+  const debouncedFetchOptions = useDebouncedCallback(fetchOptions, 350);
 
   const serializeForm = (form) => {
     const result = {};
@@ -203,7 +208,10 @@ export default function DynamicForm({
           }
 
 
-          if (meta.type === ("boolean" || "Boolean")) {
+          // Era `meta.type === ("boolean" || "Boolean")`: em JS o parêntese avalia para
+          // "boolean" antes da comparação, então um campo `Boolean` (wrapper) caía no
+          // input de texto em vez do seletor Sim/Não.
+          if (type === "boolean") {
             return (
               <div className={styles.formGroup} key={key}>
                 <TextField
@@ -437,7 +445,7 @@ export default function DynamicForm({
                           onChange={(_, newValue) => handleAutocompleteChange(key, newValue)}
                           onInputChange={(_, inputValue) => {
                             if (inputValue.length >= 2) {
-                              fetchOptions(meta.relatedType, key, inputValue);
+                              debouncedFetchOptions(meta.relatedType, key, inputValue);
                             }
                           }}
                           isOptionEqualToValue={(opt, val) => opt?.id === val?.id}

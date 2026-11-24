@@ -44,7 +44,11 @@ public class SessionPackageService extends AbstractCrudService<SessionPackageEnt
         return sessionUseCase.countFiltered(getTenant(), getCurrentLoggedUser(), filter);
     }
 
+    /** Era um stub ({@code List.of()}); delega para a listagem com verificação de perfil. */
+    @Override
     public List<SessionPackageEntity> findAllPaged(int page, int size) {
-        return List.of();
+        Filter filter = new Filter();
+        filter.setFilterParams(new java.util.ArrayList<>());
+        return filteredFindPaged(filter, page, size);
     }
 }

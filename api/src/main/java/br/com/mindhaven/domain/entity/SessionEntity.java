@@ -3,9 +3,11 @@ package br.com.mindhaven.domain.entity;
 import br.com.mindhaven.infrastructure.interceptor.AuditListener;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import core.notes.ISensitive;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,6 +16,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "session_info")
+@BatchSize(size = 32)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,10 +34,13 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "summary")
     private String summary;
 
+    // Anotação clínica privada: auditada como impressão digital, nunca copiada em claro.
+    @ISensitive
     @Column(name = "private_notes", columnDefinition = "TEXT")
     private String privateNotes;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @BatchSize(size = 32)
     @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private List<AnnotationEntity> annotation = new ArrayList<>();
 

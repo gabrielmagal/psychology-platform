@@ -4,31 +4,28 @@ import SessionPaidDetailDialog from "./SessionPaidDetailDialog";
 import styles from "../dynamic/EntityCrudPage.module.css";
 import {Roles} from "../../shared/Roles";
 import {useRoles} from "../../shared/UseRoles";
+import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
 
 export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, onForbidden }) {
     const [modalOpen, setModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [sessionsTotal, setSessionsTotal] = useState(null);
     const [modalError, setModalError] = useState(null);
-    const { isAdmin, isPsychologist, isPatient } = useRoles(keycloak);
+    const { isAdmin, isPsychologist } = useRoles(keycloak);
+
+    // Estas chamadas usavam fetch cru: um 401 aqui não disparava o fluxo de sessão
+    // expirada, e a mensagem real do backend era descartada.
+    const request = (path, options) =>
+        apiFetch(path, { keycloak, realm, onUnauthorized, onForbidden, ...options });
 
     const fetchSessionsTotal = async (id) => {
         setLoading(true);
         setModalError(null);
         setSessionsTotal(null);
         try {
-            const apiUrl = process.env.REACT_APP_API_URL;
-            const res = await fetch(`${apiUrl}/session-package/${id}/payments`, {
-                headers: {
-                    Authorization: "Bearer " + keycloak.token,
-                    Tenant: realm,
-                },
-            });
-            if (!res.ok) throw new Error("Erro ao buscar total.");
-            const data = await res.json();
-            setSessionsTotal(data);
-        } catch {
-            setModalError("Erro ao buscar total de sessões.");
+            setSessionsTotal(await request(`/session-package/${id}/payments`));
+        } catch (err) {
+            setModalError(extractCleanErrorMessage(err) || "Erro ao buscar total de sessões.");
         } finally {
             setLoading(false);
         }
@@ -47,21 +44,8 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
 
     const handlePaymentRedirect = async (item) => {
         try {
-            const apiUrl = process.env.REACT_APP_API_URL;
-            const res = await fetch(`${apiUrl}/mercado-pago-info/payment-preference/${item.id}`, {
-                method: 'GET',
-                headers: {
-                    Authorization: "Bearer " + keycloak.token,
-                    Tenant: realm,
-                },
-            });
-
-            if (!res.ok) {
-                throw new Error("Erro ao iniciar pagamento - " + res.status);
-            }
-
-            let paymentUrl = await res.text();
-            paymentUrl = paymentUrl.trim().replace(/^"|"$/g, "");
+            const raw = await request(`/mercado-pago-info/payment-preference/${item.id}`);
+            const paymentUrl = String(raw ?? "").trim().replace(/^"|"$/g, "");
 
             if (!paymentUrl) {
                 throw new Error("paymentUrl vazio.");
@@ -69,7 +53,8 @@ export default function SessionPackageCrud({ keycloak, realm, onUnauthorized, on
 
             window.location.href = paymentUrl;
         } catch (e) {
-            alert("Erro ao redirecionar para pagamento.");
+            setModalError(extractCleanErrorMessage(e) || "Erro ao redirecionar para pagamento.");
+            setModalOpen(true);
             console.error(e);
         }
     };

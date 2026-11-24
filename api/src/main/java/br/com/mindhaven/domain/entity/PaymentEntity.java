@@ -4,9 +4,11 @@ import br.com.mindhaven.infrastructure.interceptor.AuditListener;
 import br.com.mindhaven.domain.entity.enums.PaymentMethod;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import core.notes.ISensitive;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,6 +16,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "payment")
+@BatchSize(size = 32)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,6 +44,9 @@ public class PaymentEntity extends BaseEntity {
     @Column(name = "observation")
     private String observation;
 
+    // Comprovante em base64: documento do paciente, e volumoso demais para ser copiado
+    // inteiro a cada alteração do pagamento.
+    @ISensitive
     @Column(name = "receipt", columnDefinition = "TEXT")
     private String receipt;
 

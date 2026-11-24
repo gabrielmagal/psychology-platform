@@ -7,12 +7,22 @@ import core.service.AbstractCrudService;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @ApplicationScoped
 public class UserService extends AbstractCrudService<UserEntity> {
+
+    private static final Logger LOG = Logger.getLogger(UserService.class);
+
     @Inject
     UserUseCase userUseCase;
 
@@ -23,55 +33,72 @@ public class UserService extends AbstractCrudService<UserEntity> {
         super(UserEntity.class);
     }
 
+    /**
+     * Duas correções aqui, além da simplificação do acesso ao MinIO:
+     *
+     * <ol>
+     *   <li>{@code userUseCase.save} devolve a entidade gerenciada — que é quem carrega o id
+     *       gerado. O código antigo ignorava esse retorno e usava a instância recebida, cujo
+     *       id continua nulo depois do {@code merge}. Resultado: a foto de todo usuário novo
+     *       era gravada em {@code .../user/null/user_profile.png}, uma sobrescrevendo a outra.</li>
+     *   <li>O upload era precedido de um GET (baixando a imagem inteira só para saber se ela
+     *       existia) e de um DELETE. {@code putObject} já sobrescreve, então os dois eram
+     *       round-trips desperdiçados.</li>
+     * </ol>
+     */
     public UserEntity save(UserEntity entity) {
-        userUseCase.save(getTenant(), getCurrentLoggedUser(), entity);
-
-        try {
-            String fileName = getTenant() + "/user/" + entity.getId() + "/user_profile.png";
-            byte[] image = minioUseCase.getObjectBytes(fileName);
-            if (image != null && image.length > 0) {
-                minioUseCase.deleteObject(fileName);
-            }
-            minioUseCase.uploadBase64(fileName, entity.getProfileImage(), "image/png");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return entity;
+        UserEntity saved = userUseCase.save(getTenant(), getCurrentLoggedUser(), entity);
+        storeProfileImage(saved.getId(), entity.getProfileImage());
+        saved.setProfileImage(entity.getProfileImage());
+        return saved;
     }
 
     public UserEntity update(UserEntity entity) {
-        userUseCase.update(getTenant(), getCurrentLoggedUser(), entity);
-
-        try {
-            String fileName = getTenant() + "/user/" + entity.getId() + "/user_profile.png";
-            byte[] image = minioUseCase.getObjectBytes(fileName);
-            if (image != null && image.length > 0) {
-                minioUseCase.deleteObject(fileName);
-            }
-            minioUseCase.uploadBase64(fileName, entity.getProfileImage(), "image/png");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return entity;
+        UserEntity saved = userUseCase.update(getTenant(), getCurrentLoggedUser(), entity);
+        storeProfileImage(saved.getId(), entity.getProfileImage());
+        saved.setProfileImage(entity.getProfileImage());
+        return saved;
     }
 
     public UserEntity findById(UUID id) {
         UserEntity user = userUseCase.findById(getTenant(), getCurrentLoggedUser(), id);
-        user.setProfileImage(includeImage(getTenant() + "/user/" + user.getId() + "/user_profile"));
+        user.setProfileImage(loadImage(imagePath(user.getId())));
         return user;
     }
 
     public void delete(UUID id) {
         userUseCase.delete(getTenant(), getCurrentLoggedUser(), id);
-        minioUseCase.deleteObject(getTenant() + "/user/" + id + "/user_profile.png");
+        minioUseCase.deleteObject(imagePath(id));
     }
 
+    /**
+     * As fotos de perfil da página são buscadas em paralelo.
+     *
+     * <p>Eram N chamadas sequenciais ao MinIO — uma por linha listada —, então a latência da
+     * listagem crescia linearmente com o tamanho da página. Como cada chamada é E/S pura,
+     * threads virtuais resolvem sem custo relevante de recursos: a página passa a levar
+     * aproximadamente o tempo da chamada mais lenta, e não a soma de todas.
+     */
     public List<UserEntity> filteredFindPaged(Filter filter, int page, int size) {
         List<UserEntity> users = userUseCase.filteredFindPaged(getTenant(), getCurrentLoggedUser(), filter, page, size);
+        if (users.isEmpty()) return users;
+
+        // O caminho é montado aqui, na thread da requisição: getTenant() lê os headers HTTP
+        // e não estaria disponível dentro das threads virtuais.
+        String tenant = getTenant();
+
+        Map<UUID, Future<String>> pending = new LinkedHashMap<>();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (UserEntity user : users) {
+                pending.computeIfAbsent(user.getId(), id -> {
+                    String path = imagePath(tenant, id);
+                    return executor.submit(() -> loadImage(path));
+                });
+            }
+        }
+
         for (UserEntity user : users) {
-            user.setProfileImage(includeImage(getTenant() + "/user/" + user.getId() + "/user_profile"));
+            user.setProfileImage(resolve(pending.get(user.getId()), user.getId()));
         }
         return users;
     }
@@ -84,11 +111,40 @@ public class UserService extends AbstractCrudService<UserEntity> {
         return userUseCase.findByKeycloakId(tenant, keycloakId);
     }
 
-    private String includeImage(String fileName) {
-        byte[] image = minioUseCase.getObjectBytes(fileName + ".png");
-        if (image != null) {
-            return java.util.Base64.getEncoder().encodeToString(image);
+    private String resolve(Future<String> future, UUID userId) {
+        if (future == null) return "";
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        } catch (Exception e) {
+            LOG.debugf(e, "Falha ao carregar foto de perfil de %s", userId);
+            return "";
         }
-        return "";
+    }
+
+    private String imagePath(UUID userId) {
+        return imagePath(getTenant(), userId);
+    }
+
+    private String imagePath(String tenant, UUID userId) {
+        return tenant + "/user/" + userId + "/user_profile.png";
+    }
+
+    /** Um usuário pode ser cadastrado sem foto — antes isso estourava NPE dentro do decoder. */
+    private void storeProfileImage(UUID userId, String base64) {
+        if (userId == null || base64 == null || base64.isBlank()) return;
+
+        try {
+            minioUseCase.uploadBase64(imagePath(userId), base64, "image/png");
+        } catch (Exception e) {
+            throw new RuntimeException("Falha ao gravar a foto de perfil", e);
+        }
+    }
+
+    private String loadImage(String fileName) {
+        byte[] image = minioUseCase.getObjectBytes(fileName);
+        return image != null ? Base64.getEncoder().encodeToString(image) : "";
     }
 }

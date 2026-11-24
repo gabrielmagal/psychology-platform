@@ -89,6 +89,7 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
     public T update(@PathParam("id") UUID id, @RequestBody T dto) {
         E existingEntity = service.findById(id);
         if (existingEntity != null) {
+            dto.setId(id);
             E entityToUpdate = mapper.toEntity(dto);
             E updatedEntity = service.update(entityToUpdate);
             if (updatedEntity != null) {

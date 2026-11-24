@@ -2,16 +2,27 @@ package br.com.mindhaven.application.service;
 
 import br.com.mindhaven.application.usecase.interfaces.SessionUseCase;
 import br.com.mindhaven.domain.entity.SessionEntity;
-import br.com.mindhaven.domain.entity.UserEntity;
 import core.service.AbstractCrudService;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.SecurityContext;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Os métodos daqui tinham assinatura própria ({@code save(tenant, loggedUser, entity)}),
+ * diferente da que o {@code AbstractBaseController} invoca ({@code save(entity)}).
+ * Resultado: o use case com toda a verificação de dono existia, mas <b>nunca era
+ * chamado</b> — o controller caía nos métodos herdados de {@code AbstractCrudService}, que
+ * vão direto ao DAO. Qualquer usuário autenticado do tenant podia ler, alterar e apagar
+ * sessões (e as anotações clínicas dentro delas) de qualquer paciente via
+ * {@code /api/session/{id}}.
+ *
+ * <p>Agora as sobrescritas têm a assinatura que o controller usa, como já acontecia em
+ * {@code AnnotationService} e {@code PaymentService}.
+ */
 @ApplicationScoped
 public class SessionService extends AbstractCrudService<SessionEntity> {
     @Inject
@@ -21,31 +32,53 @@ public class SessionService extends AbstractCrudService<SessionEntity> {
         super(SessionEntity.class);
     }
 
-    public SessionEntity save(String tenant, UserEntity loggedUser, SessionEntity entity) {
-        return sessionUseCase.save(tenant, loggedUser, entity);
+    @Override
+    public SessionEntity save(SessionEntity entity) {
+        return sessionUseCase.save(getTenant(), getCurrentLoggedUser(), entity);
     }
 
-    public SessionEntity update(String tenant, UserEntity loggedUser, SessionEntity entity) {
-        return sessionUseCase.update(tenant, loggedUser, entity);
+    @Override
+    public SessionEntity update(SessionEntity entity) {
+        return sessionUseCase.update(getTenant(), getCurrentLoggedUser(), entity);
     }
 
-    public SessionEntity findById(String tenant, UserEntity loggedUser, UUID id) {
-        return sessionUseCase.findById(tenant, loggedUser, id);
+    @Override
+    public SessionEntity findById(UUID id) {
+        return sessionUseCase.findById(getTenant(), getCurrentLoggedUser(), id);
     }
 
-    public void delete(String tenant, UserEntity loggedUser, UUID id) {
-        sessionUseCase.delete(tenant, loggedUser, id);
+    @Override
+    public void delete(UUID id) {
+        sessionUseCase.delete(getTenant(), getCurrentLoggedUser(), id);
     }
 
-    public List<SessionEntity> filteredFindPaged(String tenant, UserEntity loggedUser, Filter filter, int page, int size) {
-        return sessionUseCase.filteredFindPaged(tenant, loggedUser, filter, page, size);
+    @Override
+    public List<SessionEntity> filteredFindPaged(Filter filter, int page, int size) {
+        return sessionUseCase.filteredFindPaged(getTenant(), getCurrentLoggedUser(), filter, page, size);
     }
 
-    public long countFiltered(String tenant, UserEntity loggedUser, Filter filter) {
-        return sessionUseCase.countFiltered(tenant, loggedUser, filter);
+    @Override
+    public long countFiltered(Filter filter) {
+        return sessionUseCase.countFiltered(getTenant(), getCurrentLoggedUser(), filter);
     }
 
-    public List<SessionEntity> findAllPaged(SecurityContext securityContext, int page, int size) {
-        return List.of();
+    /**
+     * Era um stub que devolvia {@code List.of()}. Delegar para a listagem filtrada com
+     * filtro vazio mantém a regra de visibilidade num lugar só.
+     */
+    @Override
+    public List<SessionEntity> findAllPaged(int page, int size) {
+        return filteredFindPaged(emptyFilter(), page, size);
+    }
+
+    @Override
+    public List<SessionEntity> findAll() {
+        return filteredFindPaged(emptyFilter(), 0, Integer.MAX_VALUE);
+    }
+
+    private Filter emptyFilter() {
+        Filter filter = new Filter();
+        filter.setFilterParams(new ArrayList<>());
+        return filter;
     }
 }

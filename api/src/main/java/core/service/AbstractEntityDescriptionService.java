@@ -12,11 +12,28 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractEntityDescriptionService {
-    private final Set<Class<?>> visited = new HashSet<>();
+
+    /**
+     * A descrição é derivada só de anotações — não muda em runtime. Cachear evita refazer
+     * a varredura reflexiva (recursiva, sobre o grafo inteiro de DTOs) em toda chamada de
+     * {@code /entity-description}, que o front dispara a cada abertura de tela.
+     */
+    private static final Map<Class<?>, Map<String, Object>> DESCRIPTION_CACHE = new ConcurrentHashMap<>();
 
     public Map<String, Object> describeEntity(Class<?> entityClass) {
+        return DESCRIPTION_CACHE.computeIfAbsent(entityClass, c -> describeEntity(c, new HashSet<>()));
+    }
+
+    /**
+     * O conjunto de classes visitadas era um campo de instância. Como os serviços são
+     * {@code @ApplicationScoped}, duas requisições simultâneas compartilhavam esse estado e
+     * uma delas recebia {@code properties: {}} — o guarda de ciclo disparando por engano —
+     * devolvendo um formulário vazio para o usuário. Agora o estado é local à chamada.
+     */
+    private Map<String, Object> describeEntity(Class<?> entityClass, Set<Class<?>> visited) {
         if (!visited.add(entityClass)) {
             return Map.of(
                     "type", entityClass.getSimpleName(),
@@ -45,7 +62,7 @@ public abstract class AbstractEntityDescriptionService {
                     if (genericType instanceof ParameterizedType parameterizedType) {
                         var actualType = parameterizedType.getActualTypeArguments()[0];
                         if (actualType instanceof Class<?> relatedClass) {
-                            Map<String, Object> nestedMeta = describeEntity(relatedClass);
+                            Map<String, Object> nestedMeta = describeEntity(relatedClass, visited);
                             Map<String, Object> prop = new LinkedHashMap<>();
                             prop.put("type", "List");
                             prop.put("oneToMany", true);
@@ -129,7 +146,7 @@ public abstract class AbstractEntityDescriptionService {
 
                     if ((field.isAnnotationPresent(OneToOne.class) || isDtoField) && isDtoField) {
                         try {
-                            Map<String, Object> nestedMeta = describeEntity(fieldType);
+                            Map<String, Object> nestedMeta = describeEntity(fieldType, visited);
                             prop.put("metadata", nestedMeta);
                         } catch (Exception e) {
                             System.err.println("Erro ao carregar metadata para " + fieldType.getSimpleName());
