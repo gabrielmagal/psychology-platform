@@ -25,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,9 +124,12 @@ public class KeycloakServiceImpl implements KeycloakService {
 
     public String createUser(String realm, UserEntity user, Set<String> roles) {
         // A senha inicial era o literal "123456" para todo usuário de todo tenant — uma
-        // credencial pública, publicada no repositório. Agora é um segredo aleatório
-        // descartável (ninguém precisa conhecê-lo): a senha real é definida pelo próprio
-        // usuário através do e-mail de UPDATE_PASSWORD disparado logo abaixo.
+        // credencial pública, publicada no repositório. Agora é uma senha provisória aleatória,
+        // diferente para cada pessoa. Ela é devolvida UMA vez a quem fez o cadastro, para ser
+        // entregue ao usuário, e o Keycloak obriga a trocá-la no primeiro acesso. O e-mail de
+        // definição de senha continua sendo enviado quando o realm tem SMTP, mas o primeiro
+        // acesso não depende mais dele: sem SMTP o usuário ficava criado e sem como entrar.
+        String temporaryPassword = generateTemporaryPassword();
         String payload = """
         {
           "username": "%s",
@@ -149,7 +151,7 @@ public class KeycloakServiceImpl implements KeycloakService {
                     user.getEmail(),
                     user.getFirstName(),
                     user.getLastName(),
-                    generateTemporaryPassword()
+                    temporaryPassword
             );
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -180,7 +182,32 @@ public class KeycloakServiceImpl implements KeycloakService {
         }
 
         sendSetPasswordEmail(realm, userId, user.getEmail());
+        user.setTemporaryPassword(temporaryPassword);
         return userId;
+    }
+
+    /**
+     * Troca a senha do usuário por uma provisória nova e a devolve. Serve para quem esqueceu a
+     * senha ou nunca recebeu a primeira; a troca continua obrigatória no próximo acesso.
+     */
+    public String resetTemporaryPassword(String realm, String keycloakUserId, String email) {
+        String temporaryPassword = generateTemporaryPassword();
+        String payload = new JsonObject()
+                .put("type", "password").put("temporary", true).put("value", temporaryPassword).encode();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(keycloakUrl + "/admin/realms/" + realm + "/users/" + keycloakUserId + "/reset-password"))
+                .timeout(Duration.ofSeconds(15))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + getAdminAccessToken())
+                .PUT(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+        HttpResponse<String> response = send(request, "gerar senha provisória no Keycloak");
+        if (response.statusCode() != 204) {
+            throw new RuntimeException("Falha ao gerar senha provisória: " + response.body());
+        }
+        return temporaryPassword;
     }
 
     /**
@@ -213,11 +240,27 @@ public class KeycloakServiceImpl implements KeycloakService {
         }
     }
 
-    /** Senha descartável: 24 bytes aleatórios, forte o bastante para nunca ser adivinhada. */
+    /** Sem 0/O, 1/l/I: a senha é lida numa tela e digitada em outra, muitas vezes ditada. */
+    private static final String PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+    /**
+     * Senha provisória: 12 caracteres aleatórios em três blocos (ex.: {@code Xk7m-Pq4R-t9Wc}),
+     * cerca de 69 bits. Sempre tem maiúscula, minúscula, número e símbolo, para passar nas
+     * políticas de senha usuais do realm.
+     */
     private String generateTemporaryPassword() {
-        byte[] bytes = new byte[24];
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        while (true) {
+            StringBuilder password = new StringBuilder();
+            for (int i = 0; i < 12; i++) {
+                if (i > 0 && i % 4 == 0) password.append('-');
+                password.append(PASSWORD_ALPHABET.charAt(SECURE_RANDOM.nextInt(PASSWORD_ALPHABET.length())));
+            }
+            String value = password.toString();
+            if (value.chars().anyMatch(Character::isUpperCase) && value.chars().anyMatch(Character::isLowerCase)
+                    && value.chars().anyMatch(Character::isDigit)) {
+                return value;
+            }
+        }
     }
 
     public void updateUser(String realm, String userId, UserEntity user, Set<String> roles) {
@@ -278,7 +321,8 @@ public class KeycloakServiceImpl implements KeycloakService {
                 .build();
 
         HttpResponse<String> response = send(request, "deletar usuário do Keycloak");
-        if (response.statusCode() != 204) {
+        // 404: a conta já não existe, que é exatamente o resultado pedido.
+        if (response.statusCode() != 204 && response.statusCode() != 404) {
             throw new RuntimeException("Falha ao deletar usuário: " + response.body());
         }
     }

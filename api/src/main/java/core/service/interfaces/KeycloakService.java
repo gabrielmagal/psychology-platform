@@ -11,4 +11,5 @@ public interface KeycloakService {
     void updateUser(String realm, String userId, UserEntity user, Set<String> roles);
     UserEntity findByKeycloakId(String tenant, String keycloakId);
     void deleteUser(String realm, UUID keycloakUserId);
+    String resetTemporaryPassword(String realm, String keycloakUserId, String email);
 }

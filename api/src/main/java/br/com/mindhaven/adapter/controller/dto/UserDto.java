@@ -22,6 +22,9 @@ public class UserDto extends BaseDto {
     private String keycloakId;
     private String registeredByKeycloakId;
 
+    /** Só vem preenchida na resposta do cadastro: é mostrada uma única vez a quem cadastrou. */
+    private String temporaryPassword;
+
     @ILabel("CPF")
     @IShowInForm
     @IShowInTable

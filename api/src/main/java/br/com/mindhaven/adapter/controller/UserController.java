@@ -31,6 +31,13 @@ public class UserController extends AbstractBaseController<UserDto, UserEntity> 
         return describeEntity(UserDto.class);
     }
 
+    /** Senha provisória nova para quem esqueceu a senha ou nunca recebeu a primeira. */
+    @jakarta.ws.rs.POST
+    @Path("/{id}/temporary-password")
+    public Map<String, Object> temporaryPassword(@jakarta.ws.rs.PathParam("id") java.util.UUID id) {
+        return Map.of("temporaryPassword", userService.resetPassword(id));
+    }
+
     @GET
     @Path("/keycloak")
     public UserDto findByKeycloakId(@Context SecurityContext securityContext) {

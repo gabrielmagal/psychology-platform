@@ -14,4 +14,5 @@ public interface UserUseCase {
     List<UserEntity> filteredFindPaged(String tenant, UserEntity loggedUser, Filter filter, int page, int size);
     long countFiltered(String tenant, UserEntity loggedUser, Filter filter);
     UserEntity findByKeycloakId(String tenant, String keycloakId);
+    String resetPassword(String tenant, UserEntity loggedUser, UUID id);
 }

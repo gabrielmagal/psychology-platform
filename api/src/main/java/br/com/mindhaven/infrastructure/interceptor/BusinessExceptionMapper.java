@@ -58,7 +58,10 @@ public class BusinessExceptionMapper {
         String constraint = violation.getConstraintName() == null ? "" : violation.getConstraintName().toLowerCase(Locale.ROOT);
         String sql = violation.getSQLException() == null || violation.getSQLException().getMessage() == null
                 ? "" : violation.getSQLException().getMessage().toLowerCase(Locale.ROOT);
-        String where = constraint + " " + sql;
+        // Só a parte do erro escrita pelo banco. O texto completo traz antes o INSERT inteiro,
+        // com todas as colunas, e um telefone repetido saía como "CPF já cadastrado".
+        int databaseMessage = sql.lastIndexOf("error:");
+        String where = constraint + " " + (databaseMessage >= 0 ? sql.substring(databaseMessage) : sql);
 
         if (where.contains("cpf")) return "Já existe um cadastro com este CPF.";
         if (where.contains("phone_number")) return "Já existe um cadastro com este telefone.";

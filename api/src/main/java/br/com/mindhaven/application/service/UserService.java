@@ -68,6 +68,11 @@ public class UserService extends AbstractCrudService<UserEntity> {
         return user;
     }
 
+    /** Gera uma senha provisória nova para o usuário e a devolve a quem pediu. */
+    public String resetPassword(UUID id) {
+        return userUseCase.resetPassword(getTenant(), getCurrentLoggedUser(), id);
+    }
+
     public void delete(UUID id) {
         userUseCase.delete(getTenant(), getCurrentLoggedUser(), id);
     }

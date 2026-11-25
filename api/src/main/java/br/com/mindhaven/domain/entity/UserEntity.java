@@ -76,6 +76,13 @@ public class UserEntity extends BaseEntity {
     @Transient
     private String profileImage;
 
+    /**
+     * Senha provisória recém-gerada. Nunca é gravada: existe só na resposta de quem acabou de
+     * cadastrar o usuário (ou de pedir uma senha nova), para ser entregue à pessoa.
+     */
+    @Transient
+    private String temporaryPassword;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false)
     private UserType userType;

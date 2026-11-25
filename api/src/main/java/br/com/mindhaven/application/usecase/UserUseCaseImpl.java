@@ -23,6 +23,9 @@ public class UserUseCaseImpl implements UserUseCase {
     @jakarta.inject.Inject
     br.com.mindhaven.application.service.PatientAccess access;
 
+    @jakarta.inject.Inject
+    jakarta.persistence.EntityManager em;
+
     public UserUseCaseImpl(UserRepository userRepository, KeycloakServiceImpl keycloakService) {
         this.userRepository = userRepository;
         this.keycloakService = keycloakService;
@@ -36,11 +39,7 @@ public class UserUseCaseImpl implements UserUseCase {
                 case PACIENTE  -> Set.of("PACIENTE_ROLE");
                 case ADMINISTRADOR  -> Set.of("ADMINISTRADOR_ROLE");
             };
-            String userId = keycloakService.createUser(tenant, entity, roles);
-            entity.setKeycloakId(userId);
-            entity.setRegisteredByKeycloakId(loggedUser.getKeycloakId());
-            UserEntity saved = userRepository.save(tenant, entity);
-            return userRepository.findById(tenant, saved.getId());
+            return createWithAccount(tenant, loggedUser, entity, roles);
         } else if (loggedUser.getUserType() == UserType.PROFISSIONAL) {
             if (entity.getUserType() == UserType.PACIENTE) {
                 // Paciente que já tem cadastro (atendido por outro profissional): o cadastro é
@@ -54,16 +53,51 @@ public class UserUseCaseImpl implements UserUseCase {
                     access.link(tenant, existing.getId(), loggedUser.getId());
                     return existing;
                 }
-                Set<String> roles = Set.of("PACIENTE_ROLE");
-                String userId = keycloakService.createUser(tenant, entity, roles);
-                entity.setKeycloakId(userId);
-                entity.setRegisteredByKeycloakId(loggedUser.getKeycloakId());
-                UserEntity saved = userRepository.save(tenant, entity);
-                return userRepository.findById(tenant, saved.getId());
+                return createWithAccount(tenant, loggedUser, entity, Set.of("PACIENTE_ROLE"));
             }
             throw new SecurityException("Profissionais só podem criar pacientes.");
         }
         throw new SecurityException("Sem permissão para criar usuário.");
+    }
+
+    /** Cria a conta de acesso e o cadastro, e devolve junto a senha provisória de primeiro acesso. */
+    private UserEntity createWithAccount(String tenant, UserEntity loggedUser, UserEntity entity, Set<String> roles) {
+        String userId = keycloakService.createUser(tenant, entity, roles);
+        String temporaryPassword = entity.getTemporaryPassword();
+        entity.setKeycloakId(userId);
+        entity.setRegisteredByKeycloakId(loggedUser.getKeycloakId());
+        UserEntity saved;
+        try {
+            saved = userRepository.save(tenant, entity);
+            // Grava já: um CPF ou telefone repetido só era recusado pelo banco no fim da
+            // transação, tarde demais para desfazer a conta criada no Keycloak.
+            em.flush();
+        } catch (RuntimeException e) {
+            // Sem isto ficava uma conta órfã no Keycloak, e o CPF nunca mais podia ser cadastrado.
+            try {
+                keycloakService.deleteUser(tenant, UUID.fromString(userId));
+            } catch (RuntimeException ignored) {
+                // o erro que interessa a quem está cadastrando é o original
+            }
+            throw e;
+        }
+        UserEntity result = userRepository.findById(tenant, saved.getId());
+        result.setTemporaryPassword(temporaryPassword);
+        return result;
+    }
+
+    @Override
+    public String resetPassword(String tenant, UserEntity loggedUser, UUID id) {
+        UserEntity user = findById(tenant, loggedUser, id);
+        boolean admin = loggedUser.getUserType() == UserType.ADMINISTRADOR;
+        boolean myPatient = loggedUser.getUserType() == UserType.PROFISSIONAL && user.getUserType() == UserType.PACIENTE;
+        if (!admin && !myPatient) {
+            throw new SecurityException("Você só pode gerar senha provisória para os seus pacientes.");
+        }
+        if (user.getId().equals(loggedUser.getId())) {
+            throw core.error.BusinessException.invalid("Para trocar a sua própria senha, use \"Esqueci minha senha\" na tela de entrada.");
+        }
+        return keycloakService.resetTemporaryPassword(tenant, user.getKeycloakId(), user.getEmail());
     }
 
     private UserEntity findByCpf(String tenant, String cpf) {
@@ -165,6 +199,9 @@ public class UserUseCaseImpl implements UserUseCase {
         if (loggedUser.getUserType() == UserType.ADMINISTRADOR) {
             userRepository.delete(tenant, id);
             keycloakService.deleteUser(tenant, UUID.fromString(user.getKeycloakId()));
+            // Sem este retorno a exclusão caía no "sem permissão" do fim do método: a conta já
+            // tinha sido apagada no Keycloak, mas o cadastro voltava e o administrador via um erro.
+            return;
         } else if (loggedUser.getUserType() == UserType.PROFISSIONAL) {
             boolean registeredByMe = loggedUser.getKeycloakId().equals(user.getRegisteredByKeycloakId());
             if (registeredByMe && user.getUserType() == UserType.PACIENTE) {
@@ -174,6 +211,8 @@ public class UserUseCaseImpl implements UserUseCase {
                             + "profissional. O cadastro é compartilhado e não pode ser excluído por você.");
                 }
                 userRepository.delete(tenant, id);
+                // A conta de acesso sai junto: se ficasse, o CPF nunca mais poderia ser cadastrado.
+                keycloakService.deleteUser(tenant, UUID.fromString(user.getKeycloakId()));
                 return;
             }
             throw new SecurityException("Profissional só pode gerenciar a sí mesmo e seus pacientes.");

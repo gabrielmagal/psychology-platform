@@ -29,6 +29,8 @@ export default function EntityCrudPage({
                                            hideColumns,
                                            // "campo,desc" ou "campo,asc": ordem da listagem.
                                            defaultSort,
+                                           // Chamado depois de salvar, com o registro devolvido pelo servidor.
+                                           onSaved,
                                            allowedRolesToEdit = [],
                                            // Quem pode criar; por padrão, quem pode editar.
                                            allowedRolesToCreate,
@@ -117,12 +119,13 @@ export default function EntityCrudPage({
     const handleSubmit = async (item) => {
         setSaving(true);
         try {
-            await request(
+            const saved = await request(
                 item.id ? `/${resource}/${item.id}` : `/${resource}`,
                 { method: item.id ? "PUT" : "POST", body: item }
             );
             toast.success(item.id ? "Alterações salvas." : `Novo ${itemName} cadastrado.`);
             setShowModal(false);
+            onSaved?.(saved, !item.id);
             fetchItems();
         } catch (err) {
             if (err?.name !== "AbortError") setActionError(err);
