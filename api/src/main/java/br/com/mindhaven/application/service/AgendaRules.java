@@ -44,6 +44,13 @@ public class AgendaRules {
         if (problem != null) throw BusinessException.conflict(problem);
     }
 
+    /** O motivo de a sessão não caber na agenda, ou {@code null} se cabe. Não lança. */
+    public String reason(String tenant, UUID professionalId, LocalDate date, LocalTime start, Integer durationMinutes,
+                         UUID ignoreSessionId) {
+        if (professionalId == null || date == null || start == null) return null;
+        return problem(tenant, professionalId, date, start, durationMinutes, ignoreSessionId);
+    }
+
     /** Horários livres do profissional no dia, de acordo com o horário de atendimento. */
     public List<String> freeSlots(String tenant, UUID professionalId, LocalDate date, Integer durationMinutes,
                                   UUID ignoreSessionId, LocalDateTime notBefore) {

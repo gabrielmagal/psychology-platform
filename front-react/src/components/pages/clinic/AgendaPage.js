@@ -120,6 +120,7 @@ export default function AgendaPage({ keycloak, realm, onUnauthorized, onForbidde
             {!compact && (
                 <span className={styles.slotMeta}>
                     {MODALITY_LABEL[item.modality]}
+                    {item.insuranceName ? ` · ${item.insuranceName}` : ""}
                     {item.status !== "AGENDADA" ? ` · ${STATUS_LABEL[item.status]}` : ""}
                     {item.status === "AGENDADA" && item.confirmedAt ? " · confirmada" : ""}
                     {item.status === "REALIZADA" && isStaff && !item.hasRecord ? " · sem registro" : ""}

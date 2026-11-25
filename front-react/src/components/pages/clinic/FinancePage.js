@@ -7,10 +7,11 @@ import { EmptyState, ErrorState, Skeleton } from "../../ui/Feedback";
 import { errorText } from "../../../utils/errors";
 import { saveBlob } from "../../../utils/fetchWithAuth";
 import { useApi, useDownload, money, formatDate, whatsappLink } from "./clinicApi";
+import TaxReceiptsPanel from "./TaxReceiptsPanel";
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const CATEGORIES = ["Aluguel", "Supervisão", "Conselho e anuidades", "Cursos e livros", "Sistemas e internet", "Impostos", "Outros"];
-const TABS = [["mes", "Mês"], ["despesas", "Despesas"], ["ano", "Ano e Carnê-Leão"]];
+const TABS = [["mes", "Mês"], ["despesas", "Despesas"], ["ano", "Ano e Carnê-Leão"], ["receita", "Receita Saúde"]];
 const isAdminOf = (keycloak) => (keycloak?.tokenParsed?.realm_access?.roles || []).includes("ADMINISTRADOR_ROLE");
 
 export default function FinancePage(props) {
@@ -225,6 +226,8 @@ export default function FinancePage(props) {
                             )}
                         </div>
                     )}
+
+                    {tab === "receita" && <TaxReceiptsPanel request={request} year={yearNumber} readOnly={isAdmin} />}
 
                     {tab === "ano" && year && (
                         <div className={styles.card}>

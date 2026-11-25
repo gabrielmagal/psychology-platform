@@ -499,6 +499,118 @@ check("nota e comentário aprovado aparecem", opened["reviews"]["count"] >= 1 an
 check("comentário público é anônimo", not any(k in opened["comments"][0] for k in ("authorId", "authorName", "id")), opened["comments"][0])
 expect("rota antiga de avaliação sem verificação não existe mais", http("POST", f"{API}/session-rating", token=pat, body={"rating": 1}), 404)
 
+# ------------------------------------- repetição, sala de vídeo, convênio, Receita Saúde, espera
+history, _ = psql(f"select version from {REALM}.flyway_schema_history order by installed_rank")
+check("migração de série, convênio e lista de espera aplicada", "20261130" in history, history)
+psql(f"delete from {REALM}.package_insurance where package_id = '{pkg_id}'")
+psql(f"delete from {REALM}.health_insurance where name like 'Convênio E2E%'")
+psql(f"delete from {REALM}.waitlist_entry where name like '%E2E'")
+
+serie_day = (now + dt.timedelta(days=150)).date()
+block_day = serie_day + dt.timedelta(days=14)
+expect("bloqueio no meio da repetição", http("POST", f"{API}/clinic/agenda-settings/blocks", token=psy, body={
+    "startAt": f"{block_day}T00:00:00", "endAt": f"{block_day}T23:59:00", "reason": "Congresso"}), 200)
+strict = expect("repetição quinzenal sem pular conflito é recusada inteira", http("POST", f"{API}/clinic/agenda", token=psy, body={
+    "sessionPackageId": pkg_id, "date": str(serie_day), "startTime": "16:00", "modality": "ONLINE",
+    "frequency": "BIWEEKLY", "occurrences": 3}), 409)
+check("recusa cita o bloqueio", "Congresso" in str(strict), strict)
+serie = expect("repetição quinzenal pulando o conflito", http("POST", f"{API}/clinic/agenda", token=psy, body={
+    "sessionPackageId": pkg_id, "date": str(serie_day), "startTime": "16:00", "modality": "ONLINE",
+    "frequency": "BIWEEKLY", "occurrences": 3, "skipConflicts": True}), 200)
+check("2 criadas e 1 pulada com o motivo", len(serie["created"]) == 2 and len(serie["skipped"]) == 1
+      and serie["skipped"][0]["date"] == str(block_day) and "Congresso" in serie["skipped"][0]["reason"], serie)
+check("sessão online sem link ganhou sala de vídeo", str(serie.get("meetingLink", "")).startswith("https://"), serie)
+last_day = serie_day + dt.timedelta(days=28)
+seen = expect("paciente vê a série", http("GET", f"{API}/clinic/agenda?from={serie_day}&to={last_day}", token=pat), 200)
+check("as duas sessões têm a mesma série e a mesma sala", len(seen) == 2 and seen[0]["seriesId"] and seen[0]["seriesId"] == seen[1]["seriesId"]
+      and seen[0]["meetingLink"] == serie["meetingLink"] == seen[1]["meetingLink"], seen)
+expect("link que não é http(s) é recusado", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/meeting", token=psy, body={
+    "modality": "ONLINE", "meetingLink": "javascript:alert(1)"}), 400)
+expect("paciente NÃO troca a sala", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/meeting", token=pat, body={"newRoom": True}), 403)
+room = expect("psicóloga gera sala nova para a série", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/meeting", token=psy, body={
+    "modality": "ONLINE", "newRoom": True, "wholeSeries": True}), 200)
+again = expect("agenda depois da troca", http("GET", f"{API}/clinic/agenda?from={serie_day}&to={last_day}", token=pat), 200)
+check("sala nova vale para as duas sessões", room["meetingLink"] != serie["meetingLink"]
+      and all(i["meetingLink"] == room["meetingLink"] for i in again), again)
+own = expect("psicóloga usa o próprio link", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/meeting", token=psy, body={
+    "modality": "ONLINE", "meetingLink": "https://meet.exemplo/consultorio"}), 200)
+check("link próprio é respeitado", own["meetingLink"] == "https://meet.exemplo/consultorio", own)
+expect("outra profissional NÃO cancela a série", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/cancel-series", token=psy2), 403)
+
+# convênio
+expect("paciente NÃO vê convênios", http("GET", f"{API}/clinic/insurances", token=pat), 403)
+insurance = expect("administrador cadastra convênio", http("POST", f"{API}/clinic/insurances", token=admin, body={
+    "name": "Convênio E2E", "ansCode": "123456", "sessionValue": "80,00", "paymentDays": 30}), 200)
+expect("outra profissional NÃO vincula pacote alheio", http("PUT", f"{API}/clinic/insurance-packages/{pkg_id}", token=psy2,
+                                                             body={"insuranceId": insurance["id"]}), 403)
+expect("psicóloga vincula o pacote ao convênio", http("PUT", f"{API}/clinic/insurance-packages/{pkg_id}", token=psy,
+                                                    body={"insuranceId": insurance["id"], "cardNumber": "000123"}), 204)
+linked = expect("pacotes e convênios", http("GET", f"{API}/clinic/insurance-packages", token=psy), 200)
+row = next((p for p in linked if p["packageId"] == pkg_id), None)
+check("pacote aparece com convênio e carteirinha", row and row["insuranceName"] == "Convênio E2E" and row["cardNumber"] == "000123", row)
+edited = expect("editar o pacote pelo formulário", http("PUT", f"{API}/session-package/{pkg_id}", token=psy, body={
+    "id": pkg_id, "professionalId": psy_id, "patient": {"id": pat_id}, "packageTitle": "Pacote E2E", "totalSessions": 4, "price": 400.00}), 200)
+linked = expect("vínculo depois de editar o pacote", http("GET", f"{API}/clinic/insurance-packages", token=psy), 200)
+check("editar o pacote não apaga o convênio", next(p for p in linked if p["packageId"] == pkg_id)["insuranceId"] == insurance["id"], linked)
+expect("psicóloga marca a 1ª da série como realizada", http("PUT", f"{API}/clinic/agenda/{seen[0]['id']}/status/REALIZADA", token=psy), 204)
+bill = expect("faturamento do convênio", http("GET", f"{API}/clinic/insurance-sessions?from={serie_day}&to={last_day}", token=psy), 200)
+check("sessão realizada entra a faturar pelo valor do convênio", len(bill["rows"]) == 1 and bill["rows"][0]["status"] == "A_FATURAR"
+      and float(bill["rows"][0]["amount"]) == 80.0, bill)
+expect("guia e faturamento", http("PUT", f"{API}/clinic/insurance-sessions/{seen[0]['id']}", token=psy,
+                                  body={"guide": "G-100", "billedAt": str(now.date())}), 204)
+expect("recebimento antes do faturamento é recusado", http("PUT", f"{API}/clinic/insurance-sessions/{seen[0]['id']}", token=psy,
+                                                           body={"paidAt": str(now.date() - dt.timedelta(days=3))}), 400)
+expect("repasse recebido", http("PUT", f"{API}/clinic/insurance-sessions/{seen[0]['id']}", token=psy, body={"paidAt": str(now.date())}), 204)
+bill = expect("faturamento visto pelo administrador", http("GET", f"{API}/clinic/insurance-sessions?from={serie_day}&to={last_day}&insuranceId={insurance['id']}", token=admin), 200)
+check("recebida, com guia e nome da profissional", bill["rows"][0]["status"] == "RECEBIDA" and bill["rows"][0]["guide"] == "G-100"
+      and bill["rows"][0]["professionalName"] == "Psicologa Teste" and float(bill["totals"]["RECEBIDA"]) == 80.0, bill)
+agenda_item = expect("agenda mostra o convênio", http("GET", f"{API}/clinic/agenda?from={serie_day}&to={serie_day}", token=pat), 200)
+check("paciente vê o convênio, não a guia", agenda_item[0]["insuranceName"] == "Convênio E2E" and "insuranceGuide" not in agenda_item[0], agenda_item)
+expect("convênio em uso não é excluído", http("DELETE", f"{API}/clinic/insurances/{insurance['id']}", token=admin), 409)
+cancelled = expect("psicóloga cancela esta e as próximas", http("PUT", f"{API}/clinic/agenda/{seen[1]['id']}/cancel-series", token=psy), 200)
+check("só a sessão ainda agendada é cancelada", cancelled["cancelled"] == 1, cancelled)
+expect("pacote volta a particular", http("PUT", f"{API}/clinic/insurance-packages/{pkg_id}", token=psy, body={"insuranceId": None}), 204)
+expect("convênio sem uso é excluído", http("DELETE", f"{API}/clinic/insurances/{insurance['id']}", token=admin), 204)
+psql(f"delete from {REALM}.schedule_block where owner_id = '{psy_id}'")
+
+# Receita Saúde
+year = now.year
+tax = expect("recebimentos para o Receita Saúde", http("GET", f"{API}/clinic/tax-receipts?year={year}", token=psy), 200)
+mine_tax = next((r for r in tax["rows"] if r["paymentId"] == payment["id"]), None)
+check("pagamento confirmado aparece pendente, com CPF do pagador", mine_tax and mine_tax["launched"] is False
+      and mine_tax["patientCpf"] == "90000000003" and tax["pending"] >= 1, tax)
+expect("paciente NÃO vê o controle", http("GET", f"{API}/clinic/tax-receipts?year={year}", token=pat), 403)
+expect("administrador NÃO marca pelo profissional", http("PUT", f"{API}/clinic/tax-receipts/{payment['id']}", token=admin, body={"launched": True}), 403)
+expect("outra profissional NÃO marca", http("PUT", f"{API}/clinic/tax-receipts/{payment['id']}", token=psy2, body={"launched": True}), 403)
+expect("psicóloga marca como lançado", http("PUT", f"{API}/clinic/tax-receipts/{payment['id']}", token=psy, body={"launched": True, "receiptNumber": "RS-1"}), 204)
+tax2 = expect("controle depois de lançar", http("GET", f"{API}/clinic/tax-receipts?year={year}", token=admin), 200)
+done = next(r for r in tax2["rows"] if r["paymentId"] == payment["id"])
+check("lançado, com número, e o administrador vê de quem é", done["launched"] and done["receiptNumber"] == "RS-1"
+      and done["professionalName"] == "Psicologa Teste", done)
+expect("psicóloga desfaz a marca", http("PUT", f"{API}/clinic/tax-receipts/{payment['id']}", token=psy, body={"launched": False}), 204)
+
+# lista de espera
+expect("paciente NÃO vê a lista de espera", http("GET", f"{API}/clinic/waitlist", token=pat), 403)
+expect("nome é obrigatório", http("POST", f"{API}/clinic/waitlist", token=psy, body={"phone": "11999990000"}), 400)
+w1 = expect("psicóloga põe alguém na fila", http("POST", f"{API}/clinic/waitlist", token=psy, body={
+    "name": "Carlos E2E", "phone": "11988887777", "preference": "terça à tarde", "modality": "ONLINE"}), 200)
+w2 = expect("administrador põe na fila de outra profissional", http("POST", f"{API}/clinic/waitlist", token=admin, body={
+    "name": "Bruna E2E", "professionalId": psy2_id}), 200)
+queue = expect("fila da psicóloga", http("GET", f"{API}/clinic/waitlist", token=psy), 200)
+names = [q["name"] for q in queue]
+check("vê a própria fila e não a da colega", "Carlos E2E" in names and "Bruna E2E" not in names, names)
+check("administrador vê as duas", {"Carlos E2E", "Bruna E2E"} <= {q["name"] for q in expect(
+    "fila do administrador", http("GET", f"{API}/clinic/waitlist", token=admin), 200)}, None)
+expect("psicóloga NÃO mexe na fila da colega", http("PUT", f"{API}/clinic/waitlist/{w2['id']}/status/AGENDADO", token=psy), 403)
+expect("situação inválida é recusada", http("PUT", f"{API}/clinic/waitlist/{w1['id']}/status/XYZ", token=psy), 400)
+expect("psicóloga marca como agendado", http("PUT", f"{API}/clinic/waitlist/{w1['id']}/status/AGENDADO", token=psy), 204)
+check("agendado sai da fila aberta", "Carlos E2E" not in [q["name"] for q in expect(
+    "fila aberta", http("GET", f"{API}/clinic/waitlist", token=psy), 200)], None)
+check("e continua no histórico", "Carlos E2E" in [q["name"] for q in expect(
+    "fila com histórico", http("GET", f"{API}/clinic/waitlist?all=true", token=psy), 200)], None)
+expect("administrador remove da fila", http("DELETE", f"{API}/clinic/waitlist/{w2['id']}", token=admin), 204)
+expect("psicóloga remove da fila", http("DELETE", f"{API}/clinic/waitlist/{w1['id']}", token=psy), 204)
+
 # -------------------------------------------------------------------- painel
 for label, token in (("admin", admin), ("psicóloga", psy), ("paciente", pat)):
     dash = expect(f"painel do perfil {label}", http("GET", f"{API}/clinic/dashboard", token=token), 200)

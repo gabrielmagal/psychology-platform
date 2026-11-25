@@ -871,3 +871,24 @@
   font-size: 0.72rem;
   line-height: 1.7;
 }
+
+/* Campos soltos: edição direta numa linha de tabela e filtros na barra de ações. */
+.table input:not([type="checkbox"]),
+.table select,
+.toolbar select {
+  min-height: 34px;
+  padding: 5px 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--ink-0);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.table input:not([type="checkbox"]):focus,
+.table select:focus,
+.toolbar select:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: var(--focus-ring);
+}

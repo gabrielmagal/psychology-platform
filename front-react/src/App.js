@@ -27,6 +27,8 @@ const PaymentSettingsPage = lazy(() => import("./components/pages/payment/Paymen
 const ProfessionalsPage = lazy(() => import("./components/pages/directory/ProfessionalsPage"));
 const ProfessionalProfilePage = lazy(() => import("./components/pages/directory/ProfessionalProfilePage"));
 const MyPublicProfilePage = lazy(() => import("./components/pages/directory/MyPublicProfilePage"));
+const InsurancePage = lazy(() => import("./components/pages/clinic/InsurancePage"));
+const WaitlistPage = lazy(() => import("./components/pages/clinic/WaitlistPage"));
 const ReviewModerationPage = lazy(() => import("./components/pages/directory/ReviewModerationPage"));
 
 function PageFallback() {
@@ -89,6 +91,8 @@ function App({ keycloak, realm }) {
                                 {isStaff && <Route path="/usuarios" element={<UserCrud {...pageProps} />} />}
                                 {isStaff && <Route path="/prontuario/:patientId" element={<PatientRecordPage {...pageProps} />} />}
                                 {isStaff && <Route path="/financeiro" element={<FinancePage {...pageProps} />} />}
+                                {isStaff && <Route path="/convenios" element={<InsurancePage {...pageProps} />} />}
+                                {isStaff && <Route path="/lista-de-espera" element={<WaitlistPage {...pageProps} />} />}
                                 {isStaff && <Route path="/recebimento-online" element={<PaymentSettingsPage {...pageProps} />} />}
                                 {isPatient && <Route path="/diario" element={<MoodDiaryPage {...pageProps} />} />}
                                 {isAdmin && <Route path="/audit-log" element={<AuditLogCrud {...pageProps} />} />}

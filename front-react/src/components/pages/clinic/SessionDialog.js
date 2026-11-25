@@ -12,7 +12,11 @@ import ReviewForm from "../../ui/ReviewForm";
 /** Detalhes de uma sessão da agenda, com as ações de cada perfil. */
 export default function SessionDialog({ item, request, isPatient, patientChangeHours, onClose, onChanged, onRecordSaved }) {
     const isStaff = !isPatient;
-    const [mode, setMode] = useState("details"); // details | reschedule
+    const [mode, setMode] = useState("details"); // details | reschedule | meeting
+    const [modality, setModality] = useState(item.modality);
+    const [meetingLink, setMeetingLink] = useState(item.meetingLink || "");
+    const [wholeSeries, setWholeSeries] = useState(false);
+    const [guide, setGuide] = useState(item.insuranceGuide || "");
     const [newDate, setNewDate] = useState(item.date);
     const [newTime, setNewTime] = useState(item.startTime || "09:00");
     const [slots, setSlots] = useState(null);
@@ -56,6 +60,32 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
     };
 
     const scheduled = item.status === "AGENDADA";
+    // O link vira um botão: só endereço http(s) é aberto.
+    const roomLink = item.modality === "ONLINE" && /^https?:\/\//i.test(item.meetingLink || "") ? item.meetingLink : null;
+
+    const copyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(roomLink);
+            toast.success("Link copiado.");
+        } catch {
+            toast.error("Não foi possível copiar. Selecione o link e copie manualmente.");
+        }
+    };
+
+    const cancelSeries = async () => {
+        setBusy(true);
+        try {
+            const result = await request(`/clinic/agenda/${item.id}/cancel-series`, { method: "PUT" });
+            toast.success(`${result?.cancelled || 0} sessão(ões) cancelada(s).`);
+            onChanged();
+        } catch (err) {
+            toast.error(errorText(err));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const saveGuide = () => act(`/clinic/insurance-sessions/${item.id}`, "Guia registrada.", { body: { guide } });
     const startsAt = item.startTime ? dayjs(`${item.date}T${item.startTime}`) : null;
     const patientCanChange = isPatient && scheduled && startsAt && startsAt.diff(dayjs(), "hour", true) >= patientChangeHours;
 
@@ -81,13 +111,19 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                             <dd>{item.singleSession ? "Sessão avulsa" : item.packageTitle || "—"}</dd>
                             <dt>Duração</dt><dd>{item.durationMinutes} min</dd>
                             <dt>Modalidade</dt><dd>{MODALITY_LABEL[item.modality]}</dd>
+                            {roomLink && <><dt>Sala de vídeo</dt><dd style={{ wordBreak: "break-all" }}>{roomLink}</dd></>}
+                            {item.insuranceName && <><dt>Convênio</dt><dd>{item.insuranceName}</dd></>}
+                            {item.seriesId && <><dt>Repetição</dt><dd>Faz parte de uma série de sessões</dd></>}
                             <dt>Presença</dt><dd>{item.confirmedAt ? "Confirmada pelo paciente" : "Ainda não confirmada"}</dd>
                             {isStaff && <><dt>Lembrete</dt><dd>{item.remindedAt ? "Enviado" : "Não enviado"}</dd></>}
                         </dl>
 
                         <div className={styles.actions}>
-                            {item.modality === "ONLINE" && item.meetingLink && scheduled && (
-                                <a className={styles.btn} href={item.meetingLink} target="_blank" rel="noopener noreferrer">Entrar na sessão</a>
+                            {roomLink && scheduled && (
+                                <>
+                                    <a className={styles.btnPrimary} href={roomLink} target="_blank" rel="noopener noreferrer">Entrar na sessão</a>
+                                    <button className={styles.btnGhost} onClick={copyLink}>Copiar link</button>
+                                </>
                             )}
                             {isStaff && scheduled && (
                                 <>
@@ -97,7 +133,13 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                                             onClick={() => act(`/clinic/agenda/${item.id}/status/FALTA`, "Falta registrada.")}>Falta</button>
                                     <button className={styles.btnGhost} disabled={busy}
                                             onClick={() => act(`/clinic/agenda/${item.id}/status/CANCELADA`, "Sessão cancelada.")}>Cancelar sessão</button>
+                                    {item.seriesId && (
+                                        <button className={styles.btnDanger} disabled={busy} onClick={cancelSeries}>
+                                            Cancelar esta e as próximas
+                                        </button>
+                                    )}
                                     <button className={styles.btnGhost} onClick={() => setMode("reschedule")}>Remarcar</button>
+                                    <button className={styles.btnGhost} onClick={() => setMode("meeting")}>Presencial ou online</button>
                                     <button className={styles.btnGhost} onClick={remind}>Lembrar por WhatsApp</button>
                                 </>
                             )}
@@ -129,6 +171,19 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                             </Alert>
                         )}
 
+                        {isStaff && item.insuranceName && item.status !== "CANCELADA" && (
+                            <div className={styles.row} style={{ marginTop: 18, alignItems: "end" }}>
+                                <label className={styles.field}>
+                                    Número da guia do convênio
+                                    <input value={guide} onChange={(e) => setGuide(e.target.value)} placeholder="Guia autorizada" />
+                                </label>
+                                <div>
+                                    <button className={styles.btnGhost} disabled={busy || guide === (item.insuranceGuide || "")}
+                                            onClick={saveGuide}>Salvar guia</button>
+                                </div>
+                            </div>
+                        )}
+
                         {isStaff && item.status !== "CANCELADA" && (
                             <section style={{ marginTop: 22 }}>
                                 <h3 className="ui-card-title">Registro da sessão</h3>
@@ -151,6 +206,49 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                             </section>
                         )}
                     </>
+                )}
+
+                {mode === "meeting" && (
+                    <div className={styles.form}>
+                        <label className={styles.field}>
+                            Modalidade
+                            <select value={modality} onChange={(e) => setModality(e.target.value)}>
+                                <option value="PRESENCIAL">Presencial</option>
+                                <option value="ONLINE">Online</option>
+                            </select>
+                        </label>
+                        {modality === "ONLINE" && (
+                            <label className={styles.field}>
+                                Link do atendimento
+                                <input type="url" placeholder="https://…" value={meetingLink}
+                                       onChange={(e) => setMeetingLink(e.target.value)} />
+                                <span className={styles.muted}>
+                                    Em branco, o sistema cria uma sala de vídeo. Para usar outra ferramenta, cole o link dela.
+                                </span>
+                            </label>
+                        )}
+                        {item.seriesId && (
+                            <label className={styles.check}>
+                                <input type="checkbox" checked={wholeSeries} onChange={(e) => setWholeSeries(e.target.checked)} />
+                                Aplicar também às próximas sessões desta repetição
+                            </label>
+                        )}
+                        <div className={styles.actions}>
+                            <button className={styles.btnPrimary} disabled={busy}
+                                    onClick={() => act(`/clinic/agenda/${item.id}/meeting`, "Atendimento atualizado.",
+                                        { body: { modality, meetingLink, wholeSeries } })}>
+                                Salvar
+                            </button>
+                            {modality === "ONLINE" && item.meetingLink && (
+                                <button className={styles.btnGhost} disabled={busy}
+                                        onClick={() => act(`/clinic/agenda/${item.id}/meeting`, "Sala nova criada.",
+                                            { body: { modality: "ONLINE", newRoom: true, wholeSeries } })}>
+                                    Gerar sala nova
+                                </button>
+                            )}
+                            <button className={styles.btnGhost} onClick={() => setMode("details")}>Voltar</button>
+                        </div>
+                    </div>
                 )}
 
                 {mode === "reschedule" && (

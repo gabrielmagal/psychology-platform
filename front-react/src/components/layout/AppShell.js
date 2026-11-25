@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
     FiCalendar, FiChevronDown, FiCreditCard, FiDollarSign, FiHome, FiLogOut, FiMenu, FiPackage,
-    FiArchive, FiAward, FiMessageSquare, FiShield, FiStar, FiSun, FiUser, FiUsers, FiX,
+    FiArchive, FiAward, FiBriefcase, FiClock, FiMessageSquare, FiShield, FiStar, FiSun, FiUser, FiUsers, FiX,
 } from "react-icons/fi";
 import styles from "./AppShell.module.css";
 import { brand, BrandMark } from "../../theme/brand";
@@ -28,6 +28,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
             items: [
                 { to: "/usuarios", label: "Pacientes e usuários", icon: FiUsers },
                 { to: "/sessions-package", label: "Pacotes de sessões", icon: FiPackage },
+                { to: "/lista-de-espera", label: "Lista de espera", icon: FiClock },
                 isProfessional && { to: "/meu-perfil-publico", label: "Meu perfil público", icon: FiStar },
             ].filter(Boolean),
         },
@@ -35,6 +36,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
             label: "Financeiro",
             items: [
                 { to: "/financeiro", label: "Resumo financeiro", icon: FiDollarSign },
+                { to: "/convenios", label: "Convênios", icon: FiBriefcase },
                 { to: "/recebimento-online", label: "Recebimento online", icon: FiCreditCard },
             ],
         },

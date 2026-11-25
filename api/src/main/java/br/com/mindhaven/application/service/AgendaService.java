@@ -51,6 +51,9 @@ public class AgendaService {
     @Inject
     PatientAccess access;
 
+    @Inject
+    MeetingRooms meetingRooms;
+
     /** Antecedência mínima para o paciente remarcar ou cancelar sozinho (a mesma do contrato). */
     @ConfigProperty(name = "clinic.patient-change-hours", defaultValue = "24")
     int patientChangeHours;
@@ -89,6 +92,55 @@ public class AgendaService {
         SessionEntity session = ownedSession(tenant, user, sessionId);
         requirePatientWindow(session, LocalDateTime.now(), "cancelar");
         session.setStatus(SessionStatus.CANCELADA);
+    }
+
+    /**
+     * Cancela esta sessão e as seguintes da mesma série que ainda estão agendadas. As que já
+     * passaram, ou já foram realizadas, ficam como estão.
+     */
+    public int cancelSeries(String tenant, UserEntity user, UUID sessionId) {
+        requireStaff(user);
+        SessionEntity session = ownedSession(tenant, user, sessionId);
+        if (session.getSeriesId() == null) throw BusinessException.conflict("Esta sessão não faz parte de uma repetição.");
+        List<SessionEntity> following = em.createQuery("select s from SessionEntity s where s.seriesId = :series "
+                        + "and s.dateSession >= :from and (s.status is null or s.status = :scheduled)", SessionEntity.class)
+                .setParameter("series", session.getSeriesId()).setParameter("from", session.getDateSession())
+                .setParameter("scheduled", SessionStatus.AGENDADA).getResultList();
+        following.forEach(s -> s.setStatus(SessionStatus.CANCELADA));
+        return following.size();
+    }
+
+    /**
+     * Troca a modalidade e o link de uma sessão agendada. Online sem link informado ganha uma
+     * sala nova; presencial fica sem link. Com {@code wholeSeries}, vale também para as
+     * próximas sessões agendadas da mesma repetição.
+     */
+    public String updateMeeting(String tenant, UserEntity user, UUID sessionId, SessionModality modality,
+                                String meetingLink, boolean newRoom, boolean wholeSeries) {
+        requireStaff(user);
+        SessionEntity session = ownedSession(tenant, user, sessionId);
+        if (session.getStatus() != null && session.getStatus() != SessionStatus.AGENDADA) {
+            throw BusinessException.conflict("Só é possível mudar a modalidade de uma sessão agendada.");
+        }
+        SessionModality mode = modality == null ? session.getModality() : modality;
+        String link = null;
+        if (mode == SessionModality.ONLINE) {
+            link = newRoom ? meetingRooms.newRoom()
+                    : meetingRooms.linkOrNew(meetingLink == null ? session.getMeetingLink() : meetingLink);
+        }
+        List<SessionEntity> targets = new ArrayList<>(List.of(session));
+        if (wholeSeries && session.getSeriesId() != null) {
+            targets.addAll(em.createQuery("select s from SessionEntity s where s.seriesId = :series and s.id <> :id "
+                            + "and s.dateSession >= :from and (s.status is null or s.status = :scheduled)", SessionEntity.class)
+                    .setParameter("series", session.getSeriesId()).setParameter("id", session.getId())
+                    .setParameter("from", session.getDateSession())
+                    .setParameter("scheduled", SessionStatus.AGENDADA).getResultList());
+        }
+        for (SessionEntity target : targets) {
+            target.setModality(mode);
+            target.setMeetingLink(link);
+        }
+        return link;
     }
 
     public List<String> freeSlots(String tenant, UserEntity user, UUID sessionId, LocalDate date) {

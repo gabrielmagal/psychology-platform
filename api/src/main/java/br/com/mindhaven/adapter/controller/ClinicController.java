@@ -43,7 +43,17 @@ public class ClinicController {
     @POST
     @Path("/agenda")
     public Map<String, Object> schedule(Map<String, Object> body) {
-        List<UUID> ids = clinic.schedule(tenant(), me(),
+        // "repeatWeeks" é o nome antigo de "occurrences" (quando só havia repetição semanal).
+        Integer occurrences = integer(body.get("occurrences")) != null ? integer(body.get("occurrences"))
+                : integer(body.get("repeatWeeks"));
+        ClinicService.Frequency frequency;
+        try {
+            frequency = string(body.get("frequency")) == null ? ClinicService.Frequency.WEEKLY
+                    : ClinicService.Frequency.valueOf(string(body.get("frequency")));
+        } catch (IllegalArgumentException e) {
+            throw core.error.BusinessException.invalid("Frequência de repetição inválida.");
+        }
+        ClinicService.ScheduleResult result = clinic.schedule(tenant(), me(),
                 uuid(body.get("sessionPackageId")),
                 date(string(body.get("date"))),
                 time(string(body.get("startTime"))),
@@ -51,8 +61,14 @@ public class ClinicController {
                 body.get("modality") == null ? null : SessionModality.valueOf(string(body.get("modality"))),
                 string(body.get("meetingLink")),
                 string(body.get("title")),
-                integer(body.get("repeatWeeks")) == null ? 1 : integer(body.get("repeatWeeks")));
-        return Map.of("created", ids);
+                frequency,
+                occurrences == null ? 1 : occurrences,
+                Boolean.TRUE.equals(body.get("skipConflicts")) || "true".equals(string(body.get("skipConflicts"))));
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("created", result.created());
+        response.put("skipped", result.skipped());
+        response.put("meetingLink", result.meetingLink());
+        return response;
     }
 
     @PUT

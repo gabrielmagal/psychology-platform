@@ -48,7 +48,24 @@ public class ClinicService {
     public static final String CONSENT_VERSION = "1.0";
 
     private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
-    private static final int MAX_REPEAT_WEEKS = 52;
+    private static final int MAX_OCCURRENCES = 52;
+
+    /** De quanto em quanto tempo a sessão se repete. */
+    public enum Frequency {
+        WEEKLY, BIWEEKLY, MONTHLY;
+
+        LocalDate occurrence(LocalDate first, int index) {
+            return switch (this) {
+                case WEEKLY -> first.plusWeeks(index);
+                case BIWEEKLY -> first.plusWeeks(2L * index);
+                case MONTHLY -> first.plusMonths(index);
+            };
+        }
+    }
+
+    /** O que foi agendado e as datas puladas (com o motivo), quando se pediu para pular conflitos. */
+    public record ScheduleResult(List<UUID> created, List<Map<String, Object>> skipped, String meetingLink) {
+    }
 
     @Inject
     GenericDao dao;
@@ -61,6 +78,15 @@ public class ClinicService {
 
     @Inject
     PatientAccess access;
+
+    @Inject
+    AgendaRules rules;
+
+    @Inject
+    InsuranceService insurances;
+
+    @Inject
+    MeetingRooms meetingRooms;
 
     // ------------------------------------------------------------------ agenda
 
@@ -81,6 +107,8 @@ public class ClinicService {
         boolean isPatient = user.getUserType() == UserType.PACIENTE;
         Set<UUID> rated = isPatient ? reviews.reviewedContexts(tenant, user.getId(), REVIEW_CONTEXT) : Set.of();
         Map<UUID, String> professionalNames = new HashMap<>();
+        Map<UUID, String> insuranceNames = insurances.namesByPackage(
+                sessions.stream().map(s -> s.getSessionPackage().getId()).distinct().toList());
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (SessionEntity s : sessions) {
@@ -99,7 +127,10 @@ public class ClinicService {
             item.put("packageId", p.getId());
             item.put("packageTitle", p.getPackageTitle());
             item.put("singleSession", Boolean.TRUE.equals(p.getSingleSession()));
+            item.put("seriesId", s.getSeriesId());
+            item.put("insuranceName", insuranceNames.get(p.getId()));
             if (!isPatient) {
+                item.put("insuranceGuide", s.getInsuranceGuide());
                 item.put("hasRecord", !SessionRecord.isEmpty(s));
                 item.put("recordSigned", s.getRecordSignedAt() != null);
                 item.put("riskAlert", Boolean.TRUE.equals(s.getRiskAlert()));
@@ -123,28 +154,69 @@ public class ClinicService {
     public List<UUID> schedule(String tenant, UserEntity user, UUID packageId, LocalDate date, LocalTime startTime,
                                Integer durationMinutes, SessionModality modality, String meetingLink, String title,
                                int repeatWeeks) {
+        return schedule(tenant, user, packageId, date, startTime, durationMinutes, modality, meetingLink, title,
+                Frequency.WEEKLY, repeatWeeks, false).created();
+    }
+
+    /**
+     * Cria a sessão e as repetições (semanal, quinzenal ou mensal), todas na mesma série.
+     *
+     * <p>Com {@code skipConflicts}, a data que não cabe na agenda (feriado bloqueado, outro
+     * paciente no horário) é pulada e devolvida com o motivo; sem ele, o primeiro conflito
+     * cancela o agendamento inteiro. Sessão online sem link ganha uma sala de vídeo, a mesma
+     * para a série toda.
+     */
+    public ScheduleResult schedule(String tenant, UserEntity user, UUID packageId, LocalDate date, LocalTime startTime,
+                                   Integer durationMinutes, SessionModality modality, String meetingLink, String title,
+                                   Frequency frequency, int occurrences, boolean skipConflicts) {
         requireStaff(user);
         if (packageId == null) throw core.error.BusinessException.invalid("Informe o pacote de sessões.");
         if (date == null || startTime == null) throw core.error.BusinessException.invalid("Informe a data e o horário.");
-        int total = Math.max(1, Math.min(repeatWeeks, MAX_REPEAT_WEEKS));
+        int total = Math.max(1, Math.min(occurrences, MAX_OCCURRENCES));
+        Frequency every = frequency == null ? Frequency.WEEKLY : frequency;
+        int duration = durationMinutes == null ? 50 : durationMinutes;
+        SessionModality mode = modality == null ? SessionModality.PRESENCIAL : modality;
+        String link = mode == SessionModality.ONLINE ? meetingRooms.linkOrNew(meetingLink) : null;
+        UUID seriesId = total > 1 ? UUID.randomUUID() : null;
+
+        dao.defineSchema(tenant);
+        SessionPackageEntity pkg = em.find(SessionPackageEntity.class, packageId);
+        UUID professionalId = pkg == null ? null : pkg.getProfessionalId();
 
         List<UUID> created = new ArrayList<>();
-        for (int week = 0; week < total; week++) {
+        List<Map<String, Object>> skipped = new ArrayList<>();
+        for (int index = 0; index < total; index++) {
+            LocalDate day = every.occurrence(date, index);
+            if (skipConflicts) {
+                String reason = rules.reason(tenant, professionalId, day, startTime, duration, null);
+                if (reason != null) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("date", day.toString());
+                    row.put("reason", reason);
+                    skipped.add(row);
+                    continue;
+                }
+            }
             SessionPackageEntity packageRef = new SessionPackageEntity();
             packageRef.setId(packageId);
 
             SessionEntity session = new SessionEntity();
             session.setSessionPackage(packageRef);
-            session.setDateSession(date.plusWeeks(week));
+            session.setDateSession(day);
             session.setStartTime(startTime);
-            session.setDurationMinutes(durationMinutes == null ? 50 : durationMinutes);
-            session.setModality(modality == null ? SessionModality.PRESENCIAL : modality);
-            session.setMeetingLink(meetingLink);
+            session.setDurationMinutes(duration);
+            session.setModality(mode);
+            session.setMeetingLink(link);
             session.setTitle(title == null || title.isBlank() ? "Sessão" : title);
             session.setStatus(SessionStatus.AGENDADA);
+            session.setSeriesId(seriesId);
             created.add(sessionUseCase.save(tenant, user, session).getId());
         }
-        return created;
+        if (created.isEmpty()) {
+            throw core.error.BusinessException.conflict("Nenhuma das datas cabe na agenda. "
+                    + (skipped.isEmpty() ? "" : "Primeiro motivo: " + skipped.getFirst().get("reason")));
+        }
+        return new ScheduleResult(created, skipped, link);
     }
 
     public void changeStatus(String tenant, UserEntity user, UUID sessionId, SessionStatus status) {

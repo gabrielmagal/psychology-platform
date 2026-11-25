@@ -2,6 +2,7 @@ package br.com.mindhaven.application.service;
 
 import br.com.mindhaven.domain.entity.ExpenseEntity;
 import br.com.mindhaven.domain.entity.PaymentEntity;
+import br.com.mindhaven.domain.entity.TaxReceiptEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
 import br.com.mindhaven.domain.entity.enums.UserType;
 import core.error.BusinessException;
@@ -156,6 +157,99 @@ public class FinanceService {
                     .append(decimal(row.get("amount"))).append('\n');
         }
         return csv.toString();
+    }
+
+    // ------------------------------------------------------------ Receita Saúde
+
+    /**
+     * Recebimentos do ano com o que o Receita Saúde pede (pagador, beneficiário, data e valor)
+     * e a marca de quais já foram lançados lá. O recibo oficial é emitido no programa da
+     * Receita Federal; a Receita não oferece integração para outro sistema emitir.
+     */
+    public Map<String, Object> taxReceipts(String tenant, UserEntity user, int year) {
+        requireProfessional(user);
+        dao.defineSchema(tenant);
+        List<PaymentEntity> payments = em.createQuery("select p from PaymentEntity p join fetch p.sessionPackage pkg "
+                        + "join fetch pkg.patient where p.paid = true and (:all = true or pkg.professionalId = :o) "
+                        + "and p.paymentDate between :from and :to order by p.paymentDate", PaymentEntity.class)
+                .setParameter("all", seesAll(user)).setParameter("o", user.getId())
+                .setParameter("from", LocalDate.of(year, 1, 1)).setParameter("to", LocalDate.of(year, 12, 31))
+                .getResultList();
+        Map<UUID, TaxReceiptEntity> launched = new java.util.HashMap<>();
+        if (!payments.isEmpty()) {
+            for (TaxReceiptEntity t : em.createQuery("select t from TaxReceiptEntity t where t.paymentId in :ids",
+                    TaxReceiptEntity.class).setParameter("ids", payments.stream().map(PaymentEntity::getId).toList())
+                    .getResultList()) {
+                launched.put(t.getPaymentId(), t);
+            }
+        }
+        Map<UUID, String> professionals = new java.util.HashMap<>();
+        BigDecimal pendingAmount = BigDecimal.ZERO;
+        int pending = 0;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (PaymentEntity p : payments) {
+            UserEntity patient = p.getSessionPackage().getPatient();
+            TaxReceiptEntity mark = launched.get(p.getId());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("paymentId", p.getId());
+            row.put("date", p.getPaymentDate().toString());
+            row.put("amount", p.getAmount());
+            row.put("method", p.getPaymentMethod() == null ? null : p.getPaymentMethod().name());
+            row.put("patientName", (patient.getFirstName() + " " + patient.getLastName()).trim());
+            row.put("patientCpf", patient.getCpf());
+            // Paciente com responsável legal: quem paga costuma ser o responsável.
+            row.put("guardianName", patient.getGuardianName());
+            row.put("packageTitle", p.getSessionPackage().getPackageTitle());
+            row.put("launched", mark != null);
+            row.put("launchedAt", mark == null ? null : mark.getLaunchedAt().toString());
+            row.put("receiptNumber", mark == null ? null : mark.getReceiptNumber());
+            if (seesAll(user)) {
+                UUID owner = p.getSessionPackage().getProfessionalId();
+                row.put("professionalName", owner == null ? null : professionals.computeIfAbsent(owner, id -> {
+                    UserEntity pro = em.find(UserEntity.class, id);
+                    return pro == null ? null : (pro.getFirstName() + " " + pro.getLastName()).trim();
+                }));
+            }
+            rows.add(row);
+            if (mark == null) {
+                pending++;
+                pendingAmount = pendingAmount.add(p.getAmount());
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("year", year);
+        result.put("rows", rows);
+        result.put("pending", pending);
+        result.put("pendingAmount", pendingAmount);
+        result.put("launched", rows.size() - pending);
+        return result;
+    }
+
+    /** Marca (ou desmarca) o recebimento como lançado no Receita Saúde. Só quem recebeu marca. */
+    public void markTaxReceipt(String tenant, UserEntity user, UUID paymentId, boolean launched, String receiptNumber) {
+        if (user.getUserType() != UserType.PROFISSIONAL) {
+            throw new SecurityException("O lançamento no Receita Saúde é feito pelo profissional que recebeu.");
+        }
+        dao.defineSchema(tenant);
+        PaymentEntity payment = paymentId == null ? null : em.find(PaymentEntity.class, paymentId);
+        if (payment == null || payment.getSessionPackage() == null) throw BusinessException.invalid("Pagamento não encontrado.");
+        if (!user.getId().equals(payment.getSessionPackage().getProfessionalId())) {
+            throw new SecurityException("Este recebimento é de outro profissional.");
+        }
+        if (!payment.isPaid()) throw BusinessException.conflict("Este pagamento ainda não foi confirmado.");
+        TaxReceiptEntity mark = em.find(TaxReceiptEntity.class, paymentId);
+        if (!launched) {
+            if (mark != null) em.remove(mark);
+            return;
+        }
+        if (mark == null) {
+            mark = new TaxReceiptEntity();
+            mark.setPaymentId(paymentId);
+            mark.setLaunchedAt(java.time.LocalDateTime.now());
+            mark.setLaunchedBy(user.getId());
+        }
+        mark.setReceiptNumber(receiptNumber);
+        em.merge(mark);
     }
 
     private ExpenseEntity owned(UserEntity user, UUID id) {

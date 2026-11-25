@@ -63,6 +63,25 @@ public class ClinicExtrasController {
         agenda.patientCancel(tenant(), me(), id);
     }
 
+    @PUT
+    @Path("/agenda/{id}/cancel-series")
+    public Map<String, Object> cancelSeries(@PathParam("id") UUID id) {
+        return Map.of("cancelled", agenda.cancelSeries(tenant(), me(), id));
+    }
+
+    @PUT
+    @Path("/agenda/{id}/meeting")
+    public Map<String, Object> updateMeeting(@PathParam("id") UUID id, Map<String, Object> body) {
+        Map<String, Object> data = body == null ? Map.of() : body;
+        String link = agenda.updateMeeting(tenant(), me(), id,
+                data.get("modality") == null ? null : SessionModality.valueOf(text(data.get("modality"))),
+                text(data.get("meetingLink")), Boolean.TRUE.equals(data.get("newRoom")),
+                Boolean.TRUE.equals(data.get("wholeSeries")));
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("meetingLink", link);
+        return response;
+    }
+
     @GET
     @Path("/agenda/{id}/free-slots")
     public List<String> freeSlots(@PathParam("id") UUID id, @QueryParam("date") String date) {

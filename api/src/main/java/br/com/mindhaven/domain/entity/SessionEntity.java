@@ -124,6 +124,23 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
+    /** Sessões criadas juntas, numa repetição, têm o mesmo identificador de série. */
+    @Column(name = "series_id")
+    private java.util.UUID seriesId;
+
+    // Convênio: guia autorizada, valor a receber e as datas do faturamento e do repasse.
+    @Column(name = "insurance_guide", length = 60)
+    private String insuranceGuide;
+
+    @Column(name = "insurance_amount")
+    private java.math.BigDecimal insuranceAmount;
+
+    @Column(name = "insurance_billed_at")
+    private LocalDate insuranceBilledAt;
+
+    @Column(name = "insurance_paid_at")
+    private LocalDate insurancePaidAt;
+
     /** Registros antigos (e clientes que não enviam os campos novos) caem nos padrões. */
     @PrePersist
     @PreUpdate

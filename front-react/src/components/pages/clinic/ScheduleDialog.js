@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import styles from "./Clinic.module.css";
-import { ErrorState } from "../../ui/Feedback";
+import { Alert, ErrorState } from "../../ui/Feedback";
+import { formatDate } from "./clinicApi";
 
 /** Agendar uma sessão: num pacote existente (com repetição semanal) ou avulsa, com valor próprio. */
 export default function ScheduleDialog({ request, initial, canScheduleSingle, onClose, onSaved }) {
@@ -21,8 +22,11 @@ export default function ScheduleDialog({ request, initial, canScheduleSingle, on
         modality: "PRESENCIAL",
         meetingLink: "",
         title: "",
-        repeatWeeks: 1,
+        frequency: "NONE",
+        occurrences: 4,
+        skipConflicts: true,
     });
+    const [skipped, setSkipped] = useState(null);
     const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
     useEffect(() => {
@@ -44,12 +48,21 @@ export default function ScheduleDialog({ request, initial, canScheduleSingle, on
         setError(null);
         setSaving(true);
         try {
+            const repeats = kind === "package" && form.frequency !== "NONE";
+            const body = {
+                ...form,
+                frequency: repeats ? form.frequency : "WEEKLY",
+                occurrences: repeats ? form.occurrences : 1,
+                skipConflicts: repeats && form.skipConflicts,
+            };
             const result = kind === "single"
-                ? await request(`/clinic/agenda/single`, { method: "POST", body: form })
-                : await request(`/clinic/agenda`, { method: "POST", body: form });
+                ? await request(`/clinic/agenda/single`, { method: "POST", body })
+                : await request(`/clinic/agenda`, { method: "POST", body });
             const count = result?.created?.length || 1;
             toast.success(count > 1 ? `${count} sessões agendadas.` : "Sessão agendada.");
-            onSaved();
+            // Datas puladas ficam na tela até o profissional ler: ele precisa remarcá-las à mão.
+            if (result?.skipped?.length) setSkipped(result.skipped);
+            else onSaved();
         } catch (err) {
             // Conflito de horário, bloqueio, fora do expediente: a mensagem fica no formulário.
             setError(err);
@@ -62,7 +75,22 @@ export default function ScheduleDialog({ request, initial, canScheduleSingle, on
         <div className={styles.overlay}>
             <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="schedule-title">
                 <h2 id="schedule-title">Agendar sessão</h2>
-                <form className={styles.form} onSubmit={submit}>
+                {skipped && (
+                    <div className={styles.form}>
+                        <Alert tone="warning" title={`${skipped.length} data(s) não foram agendadas`}>
+                            As outras sessões da repetição foram criadas. Estas ficaram de fora porque não cabem na agenda:
+                        </Alert>
+                        <ul className={styles.muted} style={{ margin: 0, paddingLeft: 20 }}>
+                            {skipped.map((item) => (
+                                <li key={item.date}><strong>{formatDate(item.date)}</strong>: {item.reason}</li>
+                            ))}
+                        </ul>
+                        <div className={styles.actions}>
+                            <button type="button" className={styles.btnPrimary} onClick={onSaved}>Entendi</button>
+                        </div>
+                    </div>
+                )}
+                <form className={styles.form} onSubmit={submit} hidden={!!skipped}>
                     {error && <ErrorState error={error} compact />}
 
                     {canScheduleSingle && (
@@ -143,16 +171,40 @@ export default function ScheduleDialog({ request, initial, canScheduleSingle, on
                             Link do atendimento
                             <input type="url" placeholder="https://…" value={form.meetingLink}
                                    onChange={(e) => set({ meetingLink: e.target.value })} />
+                            <span className={styles.muted}>
+                                Deixe em branco para o sistema criar uma sala de vídeo. Se preferir Google Meet, Zoom ou outra
+                                ferramenta, cole o link dela aqui.
+                            </span>
                         </label>
                     )}
                     {kind === "package" && (
-                        <label className={styles.field}>
-                            Repetir toda semana por
-                            <select value={form.repeatWeeks} onChange={(e) => set({ repeatWeeks: e.target.value })}>
-                                <option value="1">Não repetir</option>
-                                {[2, 4, 8, 12].map((n) => <option key={n} value={n}>{n} semanas</option>)}
-                            </select>
-                        </label>
+                        <>
+                            <div className={styles.row}>
+                                <label className={styles.field}>
+                                    Repetir
+                                    <select value={form.frequency} onChange={(e) => set({ frequency: e.target.value })}>
+                                        <option value="NONE">Não repetir</option>
+                                        <option value="WEEKLY">Toda semana</option>
+                                        <option value="BIWEEKLY">A cada 15 dias</option>
+                                        <option value="MONTHLY">Todo mês</option>
+                                    </select>
+                                </label>
+                                {form.frequency !== "NONE" && (
+                                    <label className={styles.field}>
+                                        Quantas sessões
+                                        <input type="number" min="2" max="52" required value={form.occurrences}
+                                               onChange={(e) => set({ occurrences: e.target.value })} />
+                                    </label>
+                                )}
+                            </div>
+                            {form.frequency !== "NONE" && (
+                                <label className={styles.check}>
+                                    <input type="checkbox" checked={form.skipConflicts}
+                                           onChange={(e) => set({ skipConflicts: e.target.checked })} />
+                                    Pular as datas que não couberem na agenda (bloqueio, outro paciente) e me avisar quais foram
+                                </label>
+                            )}
+                        </>
                     )}
                     <div className={styles.actions}>
                         <button type="submit" className={styles.btnPrimary} disabled={saving}>
