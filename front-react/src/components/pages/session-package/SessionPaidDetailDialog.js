@@ -1,9 +1,8 @@
-import { Link } from "react-router-dom";
 import React from "react";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import styles from "../dynamic/EntityCrudPage.module.css";
-import dayjs from 'dayjs'
+import { Link } from "react-router-dom";
+import { FiFileText } from "react-icons/fi";
+import { EmptyState, ErrorState, Skeleton } from "../../ui/Feedback";
+import { formatDate, money } from "../clinic/clinicApi";
 
 const paymentMethodLabels = {
     CARD: "Cartão",
@@ -11,131 +10,76 @@ const paymentMethodLabels = {
     PIX: "Pix",
     BOLETO: "Boleto",
     TRANSFER: "Transferência",
+    OTHER: "Outro",
 };
 
+/** Pagamentos confirmados de um pacote, com o recibo de cada um. */
 export default function SessionPaidDetailDialog({
-                                                    open,
-                                                    onClose,
-                                                    loading,
-                                                    error,
-                                                    data, // { totalPaid, sessionPackageId, payments: [...] }
-                                                }) {
+    open,
+    onClose,
+    loading,
+    error,
+    data, // { totalPaid, sessionPackageId, payments: [...] }
+}) {
     if (!open) return null;
-
-    const formatBRL = (val) =>
-        Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const payments = data?.payments || [];
 
     return (
-        <div
-            className={styles.modalOverlay}
-            style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 2000,
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-            }}
-        >
-            <div
-                className={styles.modalContent}
-                style={{
-                    background: "white",
-                    padding: "2rem",
-                    borderRadius: "8px",
-                    maxWidth: "540px",
-                    width: "100%",
-                    minHeight: "140px",
-                }}
-            >
-                <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>
-                    Pagamentos do Pacote
-                </h3>
-                <div style={{ minHeight: 70 }}>
-                    {loading && (
-                        <div style={{ display: "flex", justifyContent: "center" }}>
-                            <CircularProgress />
-                        </div>
-                    )}
-                    {!loading && error && (
-                        <div style={{ color: "red", padding: "1rem 0" }}>{error}</div>
-                    )}
-                    {!loading && !error && data && (
-                        <>
-                            {(!data.payments || data.payments.length === 0) ? (
-                                <div style={{ padding: "1.5rem", textAlign: "center", color: "#666" }}>
-                                    Nenhum pagamento registrado para este pacote.
-                                </div>
-                            ) : (
-                                <div style={{ overflowX: "auto" }}>
-                                    <table
-                                        style={{
-                                            width: "100%",
-                                            borderCollapse: "collapse",
-                                            marginBottom: "1rem",
-                                            background: "#fff",
-                                        }}
-                                    >
-                                        <thead>
-                                        <tr>
-                                            <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "left" }}>Forma de Pagamento</th>
-                                            <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "left" }}>Data</th>
-                                            <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6", textAlign: "right" }}>Valor</th>
-                                            <th style={{ padding: "0.5rem", borderBottom: "1px solid #dee2e6" }}></th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        {data.payments.map((p, idx) => (
-                                            <tr key={p.id || idx}>
-                                                <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5" }}>
-                                                    {paymentMethodLabels[p.paymentMethod] || p.paymentMethod || "-"}
-                                                </td>
-                                                <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5" }}>
-                                                    {p.paymentDate ? dayjs(p.paymentDate).format("DD/MM/YYYY") : "-"}
-                                                </td>
-                                                <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5", textAlign: "right" }}>
-                                                    {formatBRL(p.amount)}
-                                                </td>
-                                                <td style={{ padding: "0.5rem", borderBottom: "1px solid #f1f3f5", textAlign: "right" }}>
-                                                    {p.id && <Link to={`/documento/recibo/${p.id}`}>Recibo</Link>}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        </tbody>
-                                        <tfoot>
-                                        <tr>
-                                            <td style={{ padding: "0.5rem", fontWeight: "bold", color: "#444" }} colSpan={2}>Total</td>
-                                            <td style={{ padding: "0.5rem", fontWeight: "bold", textAlign: "right", color: "#388e3c" }}>
-                                                {formatBRL(data.totalPaid)}
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-                <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
-                    <Button
-                        onClick={onClose}
-                        variant="contained"
-                        sx={{
-                            backgroundColor: "#dc3545",
-                            color: "white",
-                            fontWeight: "bold",
-                            borderRadius: "5px",
-                            padding: "0.5rem 2rem",
-                            "&:hover": { backgroundColor: "#af2b39" },
-                        }}
-                    >
-                        Fechar
-                    </Button>
+        <div className="ui-overlay">
+            <div className="ui-modal ui-modal--wide" role="dialog" aria-modal="true" aria-labelledby="paid-title">
+                <h2 id="paid-title" className="ui-modal-title">Pagamentos do pacote</h2>
+
+                {loading && <Skeleton rows={3} />}
+                {!loading && error && <ErrorState error={error} compact />}
+
+                {!loading && !error && data && payments.length === 0 && (
+                    <EmptyState title="Nenhum pagamento confirmado">
+                        Os pagamentos aparecem aqui assim que forem registrados ou confirmados pelo Asaas.
+                    </EmptyState>
+                )}
+
+                {!loading && !error && payments.length > 0 && (
+                    <div className="ui-table-wrap" style={{ boxShadow: "none" }}>
+                        <table className="ui-table">
+                            <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Forma</th>
+                                <th className="ui-num">Valor</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {payments.map((p, idx) => (
+                                <tr key={p.id || idx}>
+                                    <td>{p.paymentDate ? formatDate(p.paymentDate) : "—"}</td>
+                                    <td>{paymentMethodLabels[p.paymentMethod] || p.paymentMethod || "—"}</td>
+                                    <td className="ui-num">{money(p.amount)}</td>
+                                    <td className="ui-num">
+                                        {p.id && (
+                                            <Link className="ui-btn ui-btn--sm" to={`/documento/recibo/${p.id}`}>
+                                                <FiFileText aria-hidden="true" /> Recibo
+                                            </Link>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                            <tfoot>
+                            <tr>
+                                <td colSpan={2} style={{ fontWeight: 650 }}>Total pago</td>
+                                <td className="ui-num" style={{ fontWeight: 700, color: "var(--success-600)" }}>
+                                    {money(data.totalPaid)}
+                                </td>
+                                <td></td>
+                            </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+
+                <div className="ui-modal-actions">
+                    <button className="ui-btn" onClick={onClose}>Fechar</button>
                 </div>
             </div>
         </div>

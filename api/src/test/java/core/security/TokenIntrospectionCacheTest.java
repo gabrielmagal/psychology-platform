@@ -21,7 +21,7 @@ class TokenIntrospectionCacheTest {
 
     private TokenIntrospectionCache.Loaded loaded(String subject, long expEpochSeconds) {
         return new TokenIntrospectionCache.Loaded(
-                new TokenIntrospectionCache.Introspection(subject, Set.of("PSICOLOGO_ROLE")),
+                new TokenIntrospectionCache.Introspection(subject, Set.of("PROFISSIONAL_ROLE")),
                 expEpochSeconds);
     }
 

@@ -1,53 +1,42 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import { FiDownload } from "react-icons/fi";
 import DynamicForm from "../dynamic/DynamicForm";
-import SuccessDialog from "../../shared/dialog/SuccessDialog";
-import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
-import {Roles} from "../../shared/Roles";
 import ErrorDialog from "../../shared/dialog/ErrorDialog";
-import { Card, CardContent } from "@mui/material";
+import { ErrorState, PageHeader, Skeleton } from "../../ui/Feedback";
+import { useApi } from "../clinic/clinicApi";
+import { Roles } from "../../shared/Roles";
 
 export default function UserProfilePage({ keycloak, realm, onUnauthorized, onForbidden }) {
+    const request = useApi({ keycloak, realm, onUnauthorized, onForbidden });
     const [metadata, setMetadata] = useState(null);
     const [userData, setUserData] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+    const [actionError, setActionError] = useState(null);
 
-    const [successMessage, setSuccessMessage] = useState(null);
-    const [alertMessage, setAlertMessage] = useState(null);
+    const load = useCallback(() => {
+        setLoadError(null);
+        // As duas cargas são independentes: em paralelo, a tela abre no tempo da mais lenta.
+        Promise.all([request(`/user/entity-description`), request(`/user/keycloak`)])
+            .then(([meta, user]) => {
+                // O próprio usuário não troca o seu tipo de acesso por aqui.
+                const properties = { ...meta.properties };
+                if (properties.userType) properties.userType = { ...properties.userType, showInForm: false };
+                setMetadata({ ...meta, properties });
+                setUserData(user);
+            })
+            .catch(setLoadError);
+    }, [request]);
 
-    const request = (path, options) =>
-        apiFetch(path, { keycloak, realm, onUnauthorized, onForbidden, ...options });
-
-    const showError = (err) => {
-        const message = extractCleanErrorMessage(err);
-        if (message) setAlertMessage(message);
-    };
-
-    useEffect(() => {
-        let cancelled = false;
-
-        // As duas cargas são independentes: em paralelo, a tela abre no tempo da mais
-        // lenta, não na soma das duas. E os erros passam a aparecer para o usuário —
-        // antes iam só para o console e a página ficava em "Carregando perfil..." eterno.
-        Promise.all([
-            request(`/user/entity-description`),
-            request(`/user/keycloak`),
-        ]).then(([meta, user]) => {
-            if (cancelled) return;
-            setMetadata(meta);
-            setUserData(user);
-        }).catch((err) => {
-            if (!cancelled) showError(err);
-        });
-
-        return () => { cancelled = true; };
-    }, []);
+    useEffect(() => { load(); }, [load]);
 
     const handleSubmit = async (data) => {
         try {
             const updated = await request(`/user/${userData.id}`, { method: "PUT", body: data });
             if (updated) setUserData(updated);
-            setSuccessMessage("Perfil atualizado com sucesso!");
+            toast.success("Perfil atualizado.");
         } catch (err) {
-            showError(err);
+            setActionError(err);
         }
     };
 
@@ -62,73 +51,48 @@ export default function UserProfilePage({ keycloak, realm, onUnauthorized, onFor
             link.click();
             URL.revokeObjectURL(url);
         } catch (err) {
-            showError(err);
+            setActionError(err);
         }
     };
 
-    if (!metadata || !userData) {
-        return (
-            <>
-                <p style={{ textAlign: "center", marginTop: "3rem" }}>Carregando perfil...</p>
-                {alertMessage && (
-                    <ErrorDialog
-                        open={!!alertMessage}
-                        message={alertMessage}
-                        onClose={() => setAlertMessage(null)}
-                    />
-                )}
-            </>
-        );
-    }
-
     return (
-        <div style={{ maxWidth: 700, margin: "3rem auto" }}>
-            <Card sx={{ borderRadius: 4, boxShadow: 4 }}>
-                <CardContent>
-                    <DynamicForm
-                        metadata={metadata}
-                        initialData={userData}
-                        onSubmit={handleSubmit}
-                        keycloak={keycloak}
-                        realm={realm}
-                        onUnauthorized={onUnauthorized}
-                        onForbidden={onForbidden}
-                        allowedRolesToEdit={[Roles.ADMIN, Roles.PSYCHOLOGIST, Roles.PATIENT]}
-                        allowedRolesToDelete={[]}
-                        isNestedForm={false}
-                    />
-                </CardContent>
-            </Card>
+        <div className="ui-page" style={{ maxWidth: 760 }}>
+            <PageHeader title="Meu perfil" subtitle="Seus dados de cadastro e de contato." />
 
-            <Card sx={{ borderRadius: 4, boxShadow: 4, marginTop: 3 }}>
-                <CardContent>
-                    <h3 style={{ marginTop: 0 }}>Meus dados (LGPD)</h3>
-                    <p style={{ color: "#6c757d" }}>
-                        Baixe uma cópia de tudo o que a plataforma guarda sobre você: cadastro, sessões,
-                        pagamentos, diário de humor e consentimentos.
-                    </p>
-                    <button type="button" onClick={exportMyData}
-                            style={{ background: "#007bff", color: "#fff", border: "none", borderRadius: 6,
-                                     padding: "0.5rem 1rem", fontWeight: 600, cursor: "pointer" }}>
-                        Baixar meus dados
-                    </button>
-                </CardContent>
-            </Card>
+            {loadError && <ErrorState error={loadError} onRetry={load} />}
+            {!loadError && (!metadata || !userData) && <div className="ui-card"><Skeleton rows={8} height={28} /></div>}
 
-            {alertMessage && (
-                <ErrorDialog
-                    open={!!alertMessage}
-                    message={alertMessage}
-                    onClose={() => setAlertMessage(null)}
-                />
+            {metadata && userData && (
+                <div className="ui-stack">
+                    <div className="ui-card">
+                        <DynamicForm
+                            metadata={metadata}
+                            initialData={userData}
+                            onSubmit={handleSubmit}
+                            keycloak={keycloak}
+                            realm={realm}
+                            onUnauthorized={onUnauthorized}
+                            onForbidden={onForbidden}
+                            allowedRolesToEdit={[Roles.ADMIN, Roles.PROFESSIONAL, Roles.PATIENT]}
+                            allowedRolesToDelete={[]}
+                            isNestedForm={false}
+                        />
+                    </div>
+
+                    <div className="ui-card">
+                        <h2 className="ui-card-title">Meus dados (LGPD)</h2>
+                        <p className="ui-muted" style={{ marginBottom: 14 }}>
+                            Baixe uma cópia de tudo o que a plataforma guarda sobre você: cadastro, sessões,
+                            pagamentos, diário de humor e consentimentos.
+                        </p>
+                        <button type="button" className="ui-btn" onClick={exportMyData}>
+                            <FiDownload aria-hidden="true" /> Baixar meus dados
+                        </button>
+                    </div>
+                </div>
             )}
-            {successMessage && (
-                <SuccessDialog
-                    open={!!successMessage}
-                    message={successMessage}
-                    onClose={() => setSuccessMessage(null)}
-                />
-            )}
+
+            <ErrorDialog open={!!actionError} message={actionError} onClose={() => setActionError(null)} />
         </div>
     );
 }

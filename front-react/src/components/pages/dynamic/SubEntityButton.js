@@ -146,7 +146,7 @@ const SubEntityButton = ({
   return (
     <>
       <button onClick={handleOpen} className={className}>
-        Gerenciar {label}
+        {label}
       </button>
       <Dialog
         open={open}
@@ -177,7 +177,7 @@ const SubEntityButton = ({
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers style={{ maxHeight: "80vh", overflowY: "auto", position: "relative" }}>
+        <DialogContent dividers style={{ maxHeight: "80vh", overflowY: "auto", position: "relative", background: "var(--surface-page)" }}>
           {showForm ? (
             <DynamicForm
               metadata={prop.metadata}
@@ -213,13 +213,13 @@ const SubEntityButton = ({
                     <Button
                         variant="contained"
                         sx={{
-                          backgroundColor: '#28a745',
+                          backgroundColor: '#17736a',
                           color: 'white',
                           fontWeight: 'bold',
                           padding: '0.5rem 1.2rem',
                           borderRadius: '5px',
                           '&:hover': {
-                            backgroundColor: '#218838',
+                            backgroundColor: '#145c56',
                           },
                         }}
                         onClick={() => setShowForm(true)}
@@ -230,7 +230,7 @@ const SubEntityButton = ({
                 }
               </div>
               {loading ? (
-                <CircularProgress />
+                <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><CircularProgress /></div>
               ) : (
                 <>
                   <DynamicTable
@@ -273,7 +273,7 @@ const SubEntityButton = ({
 
       {confirmingItemId && createPortal(
         <ConfirmDialog
-          message="Tem certeza que deseja excluir este item?"
+          message="O registro será removido definitivamente."
           onConfirm={handleDeleteConfirmed}
           onCancel={() => setConfirmingItemId(null)}
         />,

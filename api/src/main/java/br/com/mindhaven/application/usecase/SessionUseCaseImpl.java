@@ -4,7 +4,7 @@ import br.com.mindhaven.application.usecase.interfaces.SessionUseCase;
 import br.com.mindhaven.domain.entity.SessionEntity;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
-import br.com.mindhaven.application.BusinessException;
+import core.error.BusinessException;
 import br.com.mindhaven.domain.entity.enums.SessionStatus;
 import br.com.mindhaven.domain.repository.SessionPackageRepository;
 import br.com.mindhaven.domain.repository.SessionRepository;
@@ -21,7 +21,11 @@ public class SessionUseCaseImpl implements SessionUseCase {
     private final SessionRepository sessionRepository;
     private final SessionPackageRepository sessionPackageRepository;
 
-    public SessionUseCaseImpl(SessionRepository sessionRepository, SessionPackageRepository sessionPackageRepository) {
+    private final br.com.mindhaven.application.service.AgendaRules agendaRules;
+
+    public SessionUseCaseImpl(SessionRepository sessionRepository, SessionPackageRepository sessionPackageRepository,
+                              br.com.mindhaven.application.service.AgendaRules agendaRules) {
+        this.agendaRules = agendaRules;
         this.sessionRepository = sessionRepository;
         this.sessionPackageRepository = sessionPackageRepository;
     }
@@ -37,84 +41,70 @@ public class SessionUseCaseImpl implements SessionUseCase {
                 assertNoConflict(tenant, entity);
                     yield sessionRepository.save(tenant, entity);
             }
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 SessionPackageEntity pacote = entity.getSessionPackage();
-                if (pacote.getId() != null && (pacote.getPsychologistId() == null || !pacote.getPsychologistId().equals(loggedUser.getId()))) {
+                if (pacote.getId() != null && (pacote.getProfessionalId() == null || !pacote.getProfessionalId().equals(loggedUser.getId()))) {
                     pacote = sessionPackageRepository.findById(tenant, pacote.getId());
                 }
-                if (pacote != null && pacote.getPsychologistId().equals(loggedUser.getId())) {
+                if (pacote != null && pacote.getProfessionalId().equals(loggedUser.getId())) {
                     entity.setSessionPackage(pacote);
                     assertNoConflict(tenant, entity);
                     yield sessionRepository.save(tenant, entity);
                 } else {
-                    throw new SecurityException("Psicólogo só pode criar sessões nos próprios pacotes.");
+                    throw new SecurityException("Profissional só pode criar sessões nos próprios pacotes.");
                 }
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode criar sessões.");
         };
     }
 
+    /**
+     * Altera os dados da sessão sobre o registro já gravado.
+     *
+     * <p>Pelo mesmo motivo do pacote: gravar a entidade vinda da requisição trocava a lista
+     * de anotações pela lista vazia do formulário e, com {@code orphanRemoval}, apagava as
+     * anotações clínicas da sessão. A sessão também permanece no pacote em que foi criada,
+     * e a verificação de dono usa o pacote gravado, não o que o cliente informa.
+     */
     public SessionEntity update(String tenant, UserEntity loggedUser, SessionEntity entity) {
-        return switch (loggedUser.getUserType()) {
-            case ADMINISTRADOR -> {
-                SessionPackageEntity pacote = entity.getSessionPackage();
-                if (pacote.getId() != null) {
-                    pacote = sessionPackageRepository.findById(tenant, pacote.getId());
-                    entity.setSessionPackage(pacote);
-                }
-                assertNoConflict(tenant, entity);
-                    yield sessionRepository.update(tenant, entity);
-            }
-            case PSICOLOGO -> {
-                SessionPackageEntity pacote = entity.getSessionPackage();
-                if (pacote.getId() != null && (pacote.getPsychologistId() == null || !pacote.getPsychologistId().equals(loggedUser.getId()))) {
-                    pacote = sessionPackageRepository.findById(tenant, pacote.getId());
-                }
-                if (pacote != null && pacote.getPsychologistId().equals(loggedUser.getId())) {
-                    entity.setSessionPackage(pacote);
-                    assertNoConflict(tenant, entity);
-                    yield sessionRepository.update(tenant, entity);
-                } else {
-                    throw new SecurityException("Psicólogo só pode atualizar sessões dos próprios pacotes.");
+        SessionEntity stored = entity.getId() == null ? null : sessionRepository.findById(tenant, entity.getId());
+        if (stored == null) {
+            throw new IllegalArgumentException("Sessão não encontrada.");
+        }
+        SessionPackageEntity pacote = stored.getSessionPackage();
+        switch (loggedUser.getUserType()) {
+            case ADMINISTRADOR -> { }
+            case PROFISSIONAL -> {
+                if (pacote == null || !loggedUser.getId().equals(pacote.getProfessionalId())) {
+                    throw new SecurityException("Profissional só pode atualizar sessões dos próprios pacotes.");
                 }
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode atualizar sessões.");
-        };
+        }
+        stored.setDateSession(entity.getDateSession());
+        stored.setStartTime(entity.getStartTime());
+        stored.setTitle(entity.getTitle());
+        stored.setSummary(entity.getSummary());
+        stored.setEvolution(entity.getEvolution());
+        stored.setPrivateNotes(entity.getPrivateNotes());
+        stored.setAttendedAt(entity.getAttendedAt());
+        stored.setMeetingLink(entity.getMeetingLink());
+        if (entity.getDurationMinutes() != null) stored.setDurationMinutes(entity.getDurationMinutes());
+        if (entity.getStatus() != null) stored.setStatus(entity.getStatus());
+        if (entity.getModality() != null) stored.setModality(entity.getModality());
+        assertNoConflict(tenant, stored);
+        return sessionRepository.update(tenant, stored);
     }
 
     /**
-     * Impede duas sessões do mesmo psicólogo no mesmo horário. Só vale para sessão com
+     * Impede duas sessões do mesmo profissional no mesmo horário. Só vale para sessão com
      * horário definido; sessões canceladas não ocupam a agenda.
      */
     private void assertNoConflict(String tenant, SessionEntity entity) {
         SessionPackageEntity pacote = entity.getSessionPackage();
-        if (entity.getDateSession() == null || entity.getStartTime() == null
-                || entity.getStatus() == SessionStatus.CANCELADA
-                || pacote == null || pacote.getPsychologistId() == null) {
-            return;
-        }
-
-        Filter filter = new Filter();
-        List<FilterParam> params = new ArrayList<>();
-        params.add(new FilterParam("dateSession", entity.getDateSession().toString()));
-        params.add(new FilterParam("sessionPackage.psychologistId", pacote.getPsychologistId().toString()));
-        filter.setFilterParams(params);
-
-        int start = entity.getStartTime().toSecondOfDay() / 60;
-        int end = start + (entity.getDurationMinutes() == null ? 50 : entity.getDurationMinutes());
-
-        for (SessionEntity other : sessionRepository.filteredFindPaged(tenant, filter, 0, 200)) {
-            if (other.getId().equals(entity.getId()) || other.getStartTime() == null
-                    || other.getStatus() == SessionStatus.CANCELADA) {
-                continue;
-            }
-            int otherStart = other.getStartTime().toSecondOfDay() / 60;
-            int otherEnd = otherStart + (other.getDurationMinutes() == null ? 50 : other.getDurationMinutes());
-            if (start < otherEnd && otherStart < end) {
-                throw BusinessException.conflict("Já existe uma sessão neste horário (começa às "
-                        + other.getStartTime().toString().substring(0, 5) + ").");
-            }
-        }
+        if (entity.getStatus() == SessionStatus.CANCELADA || pacote == null) return;
+        agendaRules.check(tenant, pacote.getProfessionalId(), entity.getDateSession(), entity.getStartTime(),
+                entity.getDurationMinutes(), entity.getId());
     }
 
     public SessionEntity findById(String tenant, UserEntity loggedUser, UUID id) {
@@ -122,11 +112,11 @@ public class SessionUseCaseImpl implements SessionUseCase {
         if (session == null) return null;
         return switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> session;
-            case PSICOLOGO -> {
-                if (session.getSessionPackage() != null && session.getSessionPackage().getPsychologistId() != null && session.getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+            case PROFISSIONAL -> {
+                if (session.getSessionPackage() != null && session.getSessionPackage().getProfessionalId() != null && session.getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     yield session;
                 } else {
-                    throw new SecurityException("Psicólogo só pode acessar sessões dos próprios pacotes.");
+                    throw new SecurityException("Profissional só pode acessar sessões dos próprios pacotes.");
                 }
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode acessar sessões.");
@@ -138,11 +128,11 @@ public class SessionUseCaseImpl implements SessionUseCase {
         if (session == null) throw new IllegalArgumentException("Sessão não encontrada.");
         switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> sessionRepository.delete(tenant, id);
-            case PSICOLOGO -> {
-                if (session.getSessionPackage() != null && session.getSessionPackage().getPsychologistId() != null && session.getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+            case PROFISSIONAL -> {
+                if (session.getSessionPackage() != null && session.getSessionPackage().getProfessionalId() != null && session.getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     sessionRepository.delete(tenant, id);
                 } else {
-                    throw new SecurityException("Psicólogo só pode deletar sessões dos próprios pacotes.");
+                    throw new SecurityException("Profissional só pode deletar sessões dos próprios pacotes.");
                 }
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode deletar sessões.");
@@ -154,11 +144,11 @@ public class SessionUseCaseImpl implements SessionUseCase {
             case ADMINISTRADOR -> {
                 return sessionRepository.filteredFindPaged(tenant, filter, page, size);
             }
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 if (filter.getFilterParams() == null) {
                     filter.setFilterParams(new ArrayList<>());
                 }
-                filter.getFilterParams().add(new FilterParam("sessionPackage.psychologistId", loggedUser.getId().toString()));
+                filter.getFilterParams().add(new FilterParam("sessionPackage.professionalId", loggedUser.getId().toString()));
                 return sessionRepository.filteredFindPaged(tenant, filter, page, size);
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode listar sessões.");
@@ -171,11 +161,11 @@ public class SessionUseCaseImpl implements SessionUseCase {
             case ADMINISTRADOR -> {
                 return sessionRepository.countFiltered(tenant, filter);
             }
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 if (filter.getFilterParams() == null) {
                     filter.setFilterParams(new ArrayList<>());
                 }
-                filter.getFilterParams().add(new FilterParam("sessionPackage.psychologistId", loggedUser.getId().toString()));
+                filter.getFilterParams().add(new FilterParam("sessionPackage.professionalId", loggedUser.getId().toString()));
                 return sessionRepository.countFiltered(tenant, filter);
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode contar sessões.");

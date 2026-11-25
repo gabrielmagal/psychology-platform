@@ -22,18 +22,6 @@ public class EntityGenerator {
         return annotationEntity;
     }
 
-    public MercadoPagoInfoEntity getMercadoPagoInfoEntity() {
-        MercadoPagoInfoEntity mercadoPagoInfoEntity = MercadoPagoInfoEntity.builder()
-                .accessToken("token")
-                .refreshToken("refresh")
-                .scope("scope")
-                .expiresIn(Integer.MAX_VALUE)
-                .tokenCreatedAt(java.time.Instant.now())
-                .build();
-        mercadoPagoInfoEntity.setId(UUID.randomUUID());
-        return mercadoPagoInfoEntity;
-    }
-
     public UserEntity getUserEntity() {
         UserEntity userEntity = UserEntity.builder()
                 .registeredByKeycloakId(UUID.randomUUID().toString())
@@ -81,7 +69,7 @@ public class EntityGenerator {
 
     public SessionPackageEntity getSessionPackageEntity() {
         SessionPackageEntity sessionPackageEntity = SessionPackageEntity.builder()
-                .psychologistId(UUID.randomUUID())
+                .professionalId(UUID.randomUUID())
                 .packageTitle("Pacote de sessões")
                 .totalSessions(10)
                 .build();

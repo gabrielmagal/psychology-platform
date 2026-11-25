@@ -5,6 +5,7 @@ import App from './App';
 import MissingRealmPage from './MissingRealmPage';
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
+import './theme/theme.css'
 
 const pathSegments = window.location.pathname.split('/').filter(Boolean);
 const realmName = pathSegments.length > 0 ? pathSegments[0] : '';

@@ -23,6 +23,44 @@ import "dayjs/locale/pt-br";
 import styles from "./DynamicForm.module.css";
 import { fetchWithAuth } from "../../../utils/fetchWithAuth";
 import { useDebouncedCallback } from "../../../utils/useDebouncedCallback";
+import { Alert } from "../../ui/Feedback";
+
+const onlyDigits = (value) => String(value ?? "").replace(/\D/g, "");
+
+/** Máscaras de leitura: o que vai para o servidor é sempre o valor limpo (só dígitos / número). */
+const MASKS = {
+  cpf: {
+    show: (v) => onlyDigits(v).slice(0, 11)
+      .replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2"),
+    store: (text) => onlyDigits(text).slice(0, 11),
+    placeholder: "000.000.000-00",
+  },
+  phone: {
+    show: (v) => {
+      const d = onlyDigits(v).slice(0, 11);
+      if (d.length <= 2) return d;
+      if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+      return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`;
+    },
+    store: (text) => onlyDigits(text).slice(0, 11),
+    placeholder: "(00) 00000-0000",
+  },
+  // Valor em reais: digita-se da direita para a esquerda, como num caixa eletrônico.
+  money: {
+    show: (v) => (v === "" || v === null || v === undefined ? ""
+      : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+    store: (text) => {
+      const d = onlyDigits(text);
+      return d ? (Number(d) / 100).toFixed(2) : "";
+    },
+    placeholder: "0,00",
+  },
+};
+
+const maskFor = (key, type) => (key === "cpf" ? MASKS.cpf
+  : /phone/i.test(key) ? MASKS.phone
+  : type === "bigdecimal" ? MASKS.money
+  : null);
 
 export default function DynamicForm({
                                       metadata,
@@ -40,6 +78,7 @@ export default function DynamicForm({
   const [form, setForm] = useState({});
   const [autocompleteOptions, setAutocompleteOptions] = useState({});
   const [openOneToOneModals, setOpenOneToOneModals] = useState({});
+  const [submitted, setSubmitted] = useState(false);
   const getUserRoles = () => keycloak?.tokenParsed?.realm_access?.roles || [];
   const apiUrl = process.env.REACT_APP_API_URL;
 
@@ -139,9 +178,60 @@ export default function DynamicForm({
     return result;
   };
 
+  /**
+   * Validação antes de enviar. Sem ela, um campo obrigatório vazio só era percebido no
+   * servidor — que respondia com um erro genérico, sem dizer qual campo faltava.
+   */
+  const validate = (values) => {
+    const found = {};
+    Object.entries(metadata?.properties || {}).forEach(([key, meta]) => {
+      if (key === "id" || meta.showInForm !== true) return;
+      const value = values[key];
+      const empty = value === null || value === undefined || value === "";
+      if (meta.required && empty) {
+        found[key] = "Campo obrigatório";
+      } else if (meta.email && !empty && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
+        found[key] = "Informe um e-mail válido, como nome@exemplo.com";
+      } else if (meta.maxLength && typeof value === "string" && value.length > meta.maxLength) {
+        found[key] = `Use no máximo ${meta.maxLength} caracteres`;
+      }
+    });
+    return found;
+  };
+
+  // Campos organizados em blocos (@IGroup no servidor), na ordem em que os blocos aparecem.
+  const groupedEntries = (() => {
+    const entries = Object.entries(metadata?.properties || {});
+    const groups = [];
+    entries.forEach(([key, meta]) => {
+      if (key === "id" || meta.showInForm !== true) return;
+      const name = meta.group || "";
+      if (!groups.includes(name)) groups.push(name);
+    });
+    if (groups.length <= 1 && !groups[0]) return entries;
+    const ordered = [];
+    groups.forEach((name) => {
+      if (name) ordered.push([`__group_${name}`, { __heading: name }]);
+      entries.forEach(([key, meta]) => {
+        if (key !== "id" && meta.showInForm === true && (meta.group || "") === name) ordered.push([key, meta]);
+      });
+    });
+    return ordered;
+  })();
+
+  // Depois da primeira tentativa de salvar, os erros acompanham o que o usuário digita.
+  const errors = submitted ? validate(form) : {};
+  const fieldError = (key) => (errors[key] ? { error: true, helperText: errors[key] } : {});
+
   const handleSubmit = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setSubmitted(true);
+    if (Object.keys(validate(form)).length > 0) {
+      // Leva o usuário até o aviso, que pode estar fora da área visível num formulário longo.
+      e.currentTarget.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      return;
+    }
     onSubmit(serializeForm(form));
   };
 
@@ -170,8 +260,18 @@ export default function DynamicForm({
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
-      <form onSubmit={handleSubmit} className={styles.form}>
-        {Object.entries(metadata.properties).map(([key, meta]) => {
+      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+        {Object.keys(errors).length > 0 && (
+          <div className={styles.full}>
+          <Alert tone="danger" title="Revise os campos destacados">
+            {Object.keys(errors).length === 1
+              ? "Há 1 campo que precisa de atenção antes de salvar."
+              : `Há ${Object.keys(errors).length} campos que precisam de atenção antes de salvar.`}
+          </Alert>
+          </div>
+        )}
+        {groupedEntries.map(([key, meta]) => {
+          if (meta.__heading) return <h3 key={key} className={styles.groupTitle}>{meta.__heading}</h3>;
           if (key === "id" || meta.showInForm !== true) return null;
 
           const inputType = meta.type?.toLowerCase().includes("date") ? "date" : "text";
@@ -193,14 +293,14 @@ export default function DynamicForm({
                           label={meta.label || key}
                           value={value ? dayjs(value) : null}
                           onChange={(newValue) => handleDateTimeChange(key, newValue)}
-                          slotProps={{ textField: { fullWidth: true, required: meta.required } }}
+                          slotProps={{ textField: { fullWidth: true, size: "small", required: meta.required, ...fieldError(key) } }}
                       />
                   ) : (
                       <DatePicker
                           label={meta.label || key}
                           value={value ? dayjs(value) : null}
                           onChange={(newValue) => handleDateChange(key, newValue)}
-                          slotProps={{ textField: { fullWidth: true, required: meta.required } }}
+                          slotProps={{ textField: { fullWidth: true, size: "small", required: meta.required, ...fieldError(key) } }}
                       />
                   )}
                 </div>
@@ -220,6 +320,7 @@ export default function DynamicForm({
                   value={value ? String(value).slice(0, 5) : ""}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value || null })}
                   required={meta.required}
+                  {...fieldError(key)}
                   fullWidth
                   variant="outlined"
                   InputLabelProps={{ shrink: true }}
@@ -244,6 +345,7 @@ export default function DynamicForm({
                     setForm({ ...form, [key]: val });
                   }}
                   required={meta.required}
+                  {...fieldError(key)}
                   fullWidth
                   variant="outlined"
                 >
@@ -333,7 +435,7 @@ export default function DynamicForm({
                             variant="contained"
                             size="small"
                             sx={{
-                              backgroundColor: '#28a745',
+                              backgroundColor: '#17736a',
                               color: 'white',
                               fontWeight: 500,
                               padding: '2px 12px',
@@ -341,7 +443,7 @@ export default function DynamicForm({
                               textTransform: 'none',
                               minWidth: 0,
                               '&:hover': {
-                                backgroundColor: '#218838',
+                                backgroundColor: '#145c56',
                               },
                             }}
                             onClick={handleDownload}
@@ -426,6 +528,7 @@ export default function DynamicForm({
                   value={value}
                   onChange={handleChange}
                   required={meta.required}
+                  {...fieldError(key)}
                 >
                   <MenuItem value="">Selecione...</MenuItem>
                   {isObject
@@ -476,6 +579,7 @@ export default function DynamicForm({
                                   label={meta.label || key}
                                   variant="outlined"
                                   required={meta.required}
+                                  {...fieldError(key)}
                                   fullWidth
                                   InputLabelProps={{ shrink: true }}
                                   InputProps={{
@@ -496,7 +600,7 @@ export default function DynamicForm({
                           <Button
                               type="button"
                               variant="outlined"
-                              style={{ height: "56px" }}
+                              style={{ height: "40px" }}
                               onClick={() => setOpenOneToOneModals(prev => ({ ...prev, [key]: true }))}
                           >
                             Novo
@@ -636,16 +740,25 @@ export default function DynamicForm({
             );
           }
 
+          const mask = maskFor(key, type);
           return (
-            <div className={styles.formGroup} key={key}>
+            <div className={`${styles.formGroup} ${meta.multiline ? styles.full : ""}`} key={key}>
               <TextField
                 id={key}
                 name={key}
                 label={meta.label || key}
                 type={inputType}
-                value={value}
-                onChange={handleChange}
+                value={mask ? mask.show(value) : value}
+                onChange={mask
+                  ? (e) => setForm({ ...form, [key]: mask.store(e.target.value) })
+                  : handleChange}
+                placeholder={mask?.placeholder}
+                inputMode={mask ? "numeric" : undefined}
+                multiline={!!meta.multiline}
+                minRows={meta.multiline || undefined}
+                slotProps={type === "bigdecimal" ? { input: { startAdornment: <InputAdornment position="start">R$</InputAdornment> } } : undefined}
                 required={meta.required || false}
+                {...fieldError(key)}
                 inputProps={{ maxLength: meta.maxLength || undefined }}
                 variant="outlined"
                 fullWidth
@@ -655,83 +768,12 @@ export default function DynamicForm({
           );
         })}
 
-        {!isNestedForm && hasAnyRole(allowedRolesToEdit) && (
+        {hasAnyRole(isNestedForm ? allowedRolesToDelete : allowedRolesToEdit) && (
           <div className={styles.formActions}>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                backgroundColor: '#28a745',
-                color: 'white',
-                fontWeight: 'bold',
-                padding: '0.5rem 1.2rem',
-                borderRadius: '5px',
-                '&:hover': {
-                  backgroundColor: '#218838',
-                },
-              }}
-            >
-              Salvar
-            </Button>
             {onClose && (
-              <Button
-                onClick={onClose}
-                variant="outlined"
-                sx={{
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  padding: '0.5rem 1.2rem',
-                  borderRadius: '5px',
-                  border: 'none',
-                  '&:hover': {
-                    backgroundColor: '#c82333',
-                  },
-                }}
-              >
-                Cancelar
-              </Button>
+              <button type="button" className="ui-btn" onClick={onClose}>Cancelar</button>
             )}
-          </div>
-        )}
-
-        {isNestedForm && hasAnyRole(allowedRolesToDelete) && (
-          <div style={{ marginTop: "1rem", display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                backgroundColor: '#28a745',
-                color: 'white',
-                fontWeight: 'bold',
-                padding: '0.5rem 1.2rem',
-                borderRadius: '5px',
-                '&:hover': {
-                  backgroundColor: '#218838',
-                },
-              }}
-            >
-              Salvar
-            </Button>
-            {onClose && (
-              <Button
-                onClick={onClose}
-                variant="outlined"
-                sx={{
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  padding: '0.5rem 1.2rem',
-                  borderRadius: '5px',
-                  border: 'none',
-                  '&:hover': {
-                    backgroundColor: '#c82333',
-                  },
-                }}
-              >
-                Cancelar
-              </Button>
-            )}
+            <button type="submit" className="ui-btn ui-btn--primary">Salvar</button>
           </div>
         )}
       </form>

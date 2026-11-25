@@ -53,7 +53,7 @@ public class UserRepositoryImpl implements UserRepository {
      * A regra de visibilidade agora vai para o WHERE da consulta.
      *
      * <p>Antes a página era buscada do banco e só então filtrada em memória, o que quebrava
-     * a paginação de forma visível: um psicólogo pedindo 5 registros por página recebia
+     * a paginação de forma visível: um profissional pedindo 5 registros por página recebia
      * "5 menos os que não são dele" — às vezes zero — e os registros descartados não
      * apareciam em página nenhuma. Filtrando no banco, cada página vem cheia e completa.
      */
@@ -83,9 +83,25 @@ public class UserRepositoryImpl implements UserRepository {
         String keycloakId = loggedUser.getKeycloakId();
 
         return (cb, root, query) -> switch (loggedUser.getUserType()) {
-            case PSICOLOGO -> List.of(cb.or(
-                    cb.equal(root.get("keycloakId"), keycloakId),
-                    cb.equal(root.get("registeredByKeycloakId"), keycloakId)));
+            case PROFISSIONAL -> {
+                // Ele mesmo e os pacientes associados a ele: os que cadastrou, os que têm pacote
+                // com ele e os que foram vinculados a ele (cadastro compartilhado).
+                var attended = query.subquery(java.util.UUID.class);
+                var pkg = attended.from(br.com.mindhaven.domain.entity.SessionPackageEntity.class);
+                attended.select(pkg.get("patient").get("id"))
+                        .where(cb.equal(pkg.get("professionalId"), loggedUser.getId()));
+
+                var linked = query.subquery(java.util.UUID.class);
+                var link = linked.from(br.com.mindhaven.domain.entity.PatientLinkEntity.class);
+                linked.select(link.get("patientId")).where(cb.equal(link.get("professionalId"), loggedUser.getId()));
+
+                yield List.of(cb.or(
+                        cb.equal(root.get("keycloakId"), keycloakId),
+                        cb.and(cb.equal(root.get("userType"), UserType.PACIENTE),
+                                cb.or(cb.equal(root.get("registeredByKeycloakId"), keycloakId),
+                                        root.get("id").in(attended),
+                                        root.get("id").in(linked)))));
+            }
             case PACIENTE -> List.<Predicate>of(cb.equal(root.get("keycloakId"), keycloakId));
             // Nenhum outro perfil enxerga usuários: predicado sempre falso.
             default -> List.<Predicate>of(cb.disjunction());

@@ -20,7 +20,7 @@ import java.util.Optional;
  * e ainda não exercitada contra a API real. Mensagem iniciada pela empresa só pode ser
  * enviada por <em>modelo aprovado</em> pela Meta — por isso o envio é do tipo
  * {@code template}, com três variáveis no corpo: nome do paciente, data/hora e nome do
- * psicólogo. Para ligar: criar o modelo, preencher id do número e token, e ativar a flag.
+ * profissional. Para ligar: criar o modelo, preencher id do número e token, e ativar a flag.
  */
 @ApplicationScoped
 public class WhatsAppReminderChannel implements ReminderChannel {
@@ -82,7 +82,7 @@ public class WhatsAppReminderChannel implements ReminderChannel {
         JsonArray parameters = new JsonArray()
                 .add(text(message.patientFirstName()))
                 .add(text(message.startsAt().format(WHEN)))
-                .add(text(message.psychologistName()));
+                .add(text(message.professionalName()));
         return new JsonObject()
                 .put("messaging_product", "whatsapp")
                 .put("to", internationalNumber(message.patientPhone()))

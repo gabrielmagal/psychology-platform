@@ -2,7 +2,6 @@ package br.com.mindhaven.application.service;
 
 import br.com.mindhaven.application.usecase.interfaces.PaymentUseCase;
 import br.com.mindhaven.domain.entity.PaymentEntity;
-import br.com.mindhaven.adapter.controller.dto.MakePaymentDto;
 import core.service.AbstractCrudService;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -59,9 +58,5 @@ public class PaymentService extends AbstractCrudService<PaymentEntity> {
 
     public BigDecimal sumPaidAmountBySessionPackage(UUID sessionPackageId) {
         return paymentUseCase.sumPaidAmountBySessionPackage(getTenant(), getCurrentLoggedUser(), sessionPackageId);
-    }
-
-    public void makePayment(MakePaymentDto makePaymentDto) {
-        paymentUseCase.makePayment(getTenant(), getCurrentLoggedUser(), makePaymentDto);
     }
 }

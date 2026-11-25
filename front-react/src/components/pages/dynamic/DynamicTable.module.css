@@ -1,83 +1,136 @@
+.tableWrapper {
+  max-width: 100%;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.table th,
-.table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #dee2e6;
-  text-align: left;
+  font-size: 0.92rem;
 }
 
 .table th {
-  background-color: #f8f9fa;
-  font-weight: bold;
-  color: #495057;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--ink-50);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
-.table tr:hover {
-  background-color: #f1f3f5;
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ink-100);
+  vertical-align: middle;
+  color: var(--ink-800);
+  /* Uma linha por registro: texto longo é cortado com reticências, e a tabela rola de lado
+     em telas estreitas em vez de espremer as colunas. */
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * A coluna de ações fica presa à direita. Quando as colunas não cabem na tela, o restante
+ * rola por baixo dela — os botões nunca saem de vista nem são cortados.
+ */
+.table td.actionsTd,
+.table th.actionsHeader {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  box-shadow: -10px 0 10px -10px rgba(19, 25, 32, 0.18);
+}
+
+.table td.actionsTd {
+  max-width: none;
+  overflow: visible;
+  width: 1%;
+  background: var(--surface-card);
+}
+
+.table tbody tr:hover td.actionsTd {
+  background: var(--brand-50);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--brand-50);
+}
+
+.actionsHeader {
+  text-align: right !important;
+}
+
+/* Muitas ações quebram em duas linhas em vez de alargar a coluna e esconder os dados. */
+.actionsCell {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  width: max-content;
+  max-width: 300px;
+  margin-left: auto;
 }
 
 .editBtn,
 .deleteBtn,
 .subEntityBtn,
 .actionBtn {
-  margin: 0; /* Remove qualquer margem residual */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ink-0);
+  color: var(--ink-700);
+  font-weight: 600;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Exemplo para manter os estilos de cor, fonte, etc. */
-.editBtn {
-  background-color: #17a2b8;
-  color: white;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+.editBtn:hover,
+.subEntityBtn:hover,
+.actionBtn:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-400);
+  color: var(--brand-700);
 }
 
 .deleteBtn {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+  color: var(--danger-600);
+  border-color: #efc4c4;
 }
 
-.subEntityBtn {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+.deleteBtn:hover {
+  background: var(--danger-100);
+  border-color: var(--danger-600);
 }
 
-.subEntityBtn:hover {
-  background-color: #218838;
+.iconBtn {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+  font-size: 0.95rem;
 }
 
-.actionBtn {
-  background-color: #ffc107;
-  color: #212529;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.actionsCell {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+.empty {
+  color: var(--ink-400);
 }

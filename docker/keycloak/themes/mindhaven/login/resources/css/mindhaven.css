@@ -1,0 +1,246 @@
+/*
+ * Tela de login — mesma identidade do sistema (ver front-react/src/theme/theme.css).
+ * Duas colunas: à esquerda a marca, à direita o formulário. No celular, uma coluna.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --mh-brand-600: #17736a;
+  --mh-brand-700: #145c56;
+  --mh-ink-900: #131920;
+  --mh-ink-500: #6a7783;
+  --mh-border: #e0e5e9;
+  --pf-v5-global--primary-color--100: var(--mh-brand-600);
+  --pf-v5-global--primary-color--200: var(--mh-brand-700);
+  --pf-v5-global--link--Color: var(--mh-brand-600);
+  --pf-v5-global--link--Color--hover: var(--mh-brand-700);
+  --pf-v5-global--active-color--100: var(--mh-brand-600);
+  --pf-v5-global--FontFamily--text: "Inter", "Segoe UI", system-ui, sans-serif;
+  --pf-v5-global--FontFamily--heading: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+html,
+body#keycloak-bg {
+  min-height: 100vh;
+  margin: 0;
+  background: #f6f8f9 !important;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+.pf-v5-c-login {
+  display: block !important;
+  min-height: 100vh;
+  padding: 0 !important;
+}
+
+.pf-v5-c-login__container {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) !important;
+  grid-template-areas: none !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100vh;
+}
+
+/* ---- coluna da marca ---- */
+
+#kc-header {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 64px clamp(32px, 6vw, 96px);
+  color: #ffffff;
+  background:
+    radial-gradient(900px 500px at 10% 0%, rgba(111, 211, 196, 0.22), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(35, 141, 129, 0.35), transparent 60%),
+    #0f2a2c;
+}
+
+#kc-header::before {
+  content: "";
+  width: 56px;
+  height: 56px;
+  background: no-repeat center / contain
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2317736a'/%3E%3Cpath d='M22.5 11.2A8.5 8.5 0 1 0 24.5 16' stroke='white' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='16' cy='16' r='3' fill='white'/%3E%3C/svg%3E");
+}
+
+#kc-header-wrapper {
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-size: clamp(2rem, 3.4vw, 2.9rem) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-transform: none !important;
+  white-space: normal;
+}
+
+#kc-header::after {
+  content: "Agenda, prontuário e financeiro do consultório em um só lugar.\A\A•  Sessões, lembretes e remarcações\A•  Prontuário protegido por sigilo e cifragem\A•  Recibos, pagamentos online e livro-caixa";
+  white-space: pre-line;
+  max-width: 30em;
+  color: #c4d3d4;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/* ---- formulário ---- */
+
+.pf-v5-c-login__main {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  width: min(440px, calc(100% - 48px));
+  margin: 32px 0 !important;
+  padding: 12px 8px;
+  background: #ffffff;
+  border: 1px solid var(--mh-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(19, 25, 32, 0.1);
+}
+
+#kc-page-title {
+  color: var(--mh-ink-900);
+  font-size: 1.5rem !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pf-v5-c-form__label-text {
+  font-weight: 600;
+  color: #353f49;
+}
+
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BorderRadius: 6px;
+  border-radius: 6px;
+}
+
+.pf-v5-c-form-control > input {
+  min-height: 42px;
+}
+
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--mh-brand-600);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--mh-brand-700);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--mh-brand-700);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--mh-brand-700);
+  min-height: 44px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.pf-v5-c-login__main-footer-band {
+  background: transparent;
+  border-top: 1px solid var(--mh-border);
+}
+
+a {
+  color: var(--mh-brand-600);
+}
+
+/* ---- celular e tablet ---- */
+
+@media (max-width: 900px) {
+  .pf-v5-c-login__container {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr;
+  }
+
+  #kc-header {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 20px 24px;
+  }
+
+  #kc-header::before {
+    width: 38px;
+    height: 38px;
+    flex: none;
+  }
+
+  #kc-header::after {
+    display: none;
+  }
+
+  #kc-header-wrapper {
+    font-size: 1.4rem !important;
+  }
+
+  .pf-v5-c-login__main {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    margin: 24px 0 !important;
+  }
+}
+
+/* ---- ajustes sobre o tema base (medidos na tela real) ---- */
+
+.pf-v5-c-login__container {
+  padding: 0 !important;
+}
+
+#kc-header {
+  margin: 0 !important;
+  min-height: 100vh;
+}
+
+#kc-header-wrapper {
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.pf-v5-c-login__main {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* A faixa azul do tema base vira a cor da marca. */
+.pf-v5-c-login__main-header {
+  border-top: 4px solid var(--mh-brand-600) !important;
+  padding: 36px 40px 12px !important;
+}
+
+.pf-v5-c-login__main-body {
+  padding: 8px 40px 36px !important;
+}
+
+/* Campo em foco e sublinhado na cor da marca, não no azul padrão. */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: var(--mh-brand-600);
+  --pf-v5-c-form-control--after--BorderBottomColor: var(--mh-border);
+}
+
+.pf-v5-c-form-control > input:focus {
+  outline: 2px solid rgba(35, 141, 129, 0.35);
+  outline-offset: 0;
+}
+
+.pf-v5-c-check__label {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  #kc-header {
+    min-height: 0;
+  }
+
+  .pf-v5-c-login__main-header {
+    padding: 28px 24px 8px !important;
+  }
+
+  .pf-v5-c-login__main-body {
+    padding: 8px 24px 28px !important;
+  }
+}

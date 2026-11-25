@@ -15,6 +15,8 @@ public enum PaymentMethod {
 
     @ILabel("Cartão")
     CARD,
+    @ILabel("Boleto")
+    BOLETO,
 
     @ILabel("Outro")
     OTHER

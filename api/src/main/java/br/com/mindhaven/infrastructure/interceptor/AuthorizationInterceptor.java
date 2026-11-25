@@ -66,6 +66,10 @@ public class AuthorizationInterceptor implements ContainerRequestFilter {
 
     @Override
     public void filter(ContainerRequestContext requestContext) {
+        Method publicMethod = resourceInfo.getResourceMethod();
+        if (publicMethod != null && publicMethod.isAnnotationPresent(core.notes.IPublic.class)) {
+            return; // chamada de sistema externo: o próprio endpoint confere a origem
+        }
         String rawTenant = headers.getHeaderString("Tenant");
         String token = headers.getHeaderString("Authorization");
 

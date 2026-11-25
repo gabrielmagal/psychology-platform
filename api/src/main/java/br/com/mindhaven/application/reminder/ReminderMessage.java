@@ -7,7 +7,7 @@ public record ReminderMessage(
         String patientFirstName,
         String patientEmail,
         String patientPhone,
-        String psychologistName,
+        String professionalName,
         LocalDateTime startsAt,
         boolean online,
         String meetingLink,

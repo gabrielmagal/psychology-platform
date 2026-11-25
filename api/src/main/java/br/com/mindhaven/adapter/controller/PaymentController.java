@@ -1,7 +1,6 @@
 package br.com.mindhaven.adapter.controller;
 
 import br.com.mindhaven.application.service.PaymentService;
-import br.com.mindhaven.adapter.controller.dto.MakePaymentDto;
 import br.com.mindhaven.adapter.controller.dto.PaymentDto;
 import br.com.mindhaven.mapper.BaseMapper;
 import br.com.mindhaven.domain.entity.PaymentEntity;
@@ -22,12 +21,6 @@ public class PaymentController extends AbstractBaseController<PaymentDto, Paymen
     public PaymentController(PaymentService service, BaseMapper<PaymentDto, PaymentEntity> mapper) {
         super(service, mapper);
         this.paymentService = service;
-    }
-
-    @POST
-    @Path("/confirm")
-    public void confirmarPagamento(MakePaymentDto makePaymentDto) {
-        paymentService.makePayment(makePaymentDto);
     }
 
     @GET

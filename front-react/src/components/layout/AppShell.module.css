@@ -1,0 +1,381 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---- menu lateral ---- */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: var(--sidebar-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-sidebar);
+  color: #c4d3d4;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #6fd3c4;
+  text-decoration: none;
+}
+
+.brandLink strong {
+  display: block;
+  color: #ffffff;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.brandLink small {
+  display: block;
+  color: #8fa7a9;
+  font-size: 0.72rem;
+}
+
+.closeDrawer {
+  display: none;
+  background: none;
+  border: none;
+  color: #c4d3d4;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+}
+
+.group + .group {
+  margin-top: 18px;
+}
+
+.groupLabel {
+  padding: 0 10px 6px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #6f898b;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  margin-bottom: 2px;
+  border-radius: var(--radius-sm);
+  color: #c4d3d4;
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.item svg {
+  flex: none;
+  font-size: 1.08rem;
+  opacity: 0.85;
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.itemActive,
+.itemActive:hover {
+  background: var(--brand-600);
+  color: #ffffff;
+}
+
+.itemActive svg {
+  opacity: 1;
+}
+
+.sidebarFooter {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.78rem;
+  color: #8fa7a9;
+}
+
+.sidebarFooter strong {
+  color: #dbe6e7;
+  font-weight: 600;
+}
+
+/* ---- área principal ---- */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbarSpacer {
+  flex: 1;
+}
+
+.hamburger {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--ink-0);
+  color: var(--ink-700);
+  font-size: 1.15rem;
+  cursor: pointer;
+  place-items: center;
+}
+
+.user {
+  position: relative;
+}
+
+.userButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px 5px 5px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-600);
+  cursor: pointer;
+  text-align: left;
+}
+
+.userButton:hover {
+  background: var(--ink-100);
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.userText strong {
+  display: block;
+  color: var(--ink-800);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.userText small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.userMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  padding: 6px;
+  background: var(--ink-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.userMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.userMenuItem:hover {
+  background: var(--ink-100);
+}
+
+.logout {
+  color: var(--danger-600);
+}
+
+.logout:hover {
+  background: var(--danger-100);
+}
+
+.content {
+  flex: 1;
+  /* Sem isto uma tabela larga empurra a página inteira em vez de rolar dentro do cartão. */
+  min-width: 0;
+}
+
+.scrim {
+  display: none;
+}
+
+/* ---- celular e tablet: o menu vira gaveta ---- */
+
+@media (max-width: 960px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  /* A sombra só existe com a gaveta aberta: fechada, ela vazava pela borda da tela. */
+  .sidebarOpen {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(15, 25, 30, 0.5);
+  }
+
+  .closeDrawer,
+  .hamburger {
+    display: grid;
+  }
+
+  .topbar {
+    padding: 0 16px;
+  }
+
+  .userText {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
+
+/* ---- busca de paciente ---- */
+
+.search {
+  position: relative;
+  width: min(360px, 100%);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  color: var(--ink-400);
+}
+
+.searchInput {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--ink-50);
+  color: var(--text);
+}
+
+.searchInput:focus {
+  outline: none;
+  background: var(--ink-0);
+  border-color: var(--brand-500);
+  box-shadow: var(--focus-ring);
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  padding: 6px;
+  background: var(--ink-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.searchItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-800);
+}
+
+.searchItem small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.searchItemActive {
+  background: var(--brand-50);
+}
+
+.searchEmpty {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

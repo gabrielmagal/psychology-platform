@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { apiFetch } from "../../../utils/fetchWithAuth";
+import { apiFetch, apiBlob } from "../../../utils/fetchWithAuth";
+import { errorText } from "../../../utils/errors";
 
 /** Chamada à API já com token, tenant e tratamento de sessão expirada. */
 export function useApi({ keycloak, realm, onUnauthorized, onForbidden }) {
@@ -9,10 +10,17 @@ export function useApi({ keycloak, realm, onUnauthorized, onForbidden }) {
     );
 }
 
-/** O `extractCleanErrorMessage` corta a mensagem no ": "; aqui a mensagem vem inteira. */
-export function errorMessage(err, fallback = "Não foi possível concluir a operação.") {
-    if (err?.name === "AbortError") return null;
-    return err?.message || fallback;
+/** Download autenticado de arquivo (PDF, anexo, planilha). */
+export function useDownload({ keycloak, realm, onUnauthorized, onForbidden }) {
+    return useCallback(
+        (path) => apiBlob(path, { keycloak, realm, onUnauthorized, onForbidden }),
+        [keycloak, realm, onUnauthorized, onForbidden]
+    );
+}
+
+/** Texto do erro para avisos curtos; as telas preferem `ErrorState`, que explica mais. */
+export function errorMessage(err, fallback) {
+    return errorText(err, fallback);
 }
 
 export const STATUS_LABEL = {
@@ -31,6 +39,7 @@ export const PAYMENT_METHOD_LABEL = {
     PIX: "Pix",
     CASH: "dinheiro",
     TRANSFER: "transferência",
+    BOLETO: "boleto",
     CARD: "cartão",
     OTHER: "outro meio",
 };

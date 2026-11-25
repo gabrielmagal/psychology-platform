@@ -20,7 +20,7 @@ public class SessionPackageDto extends BaseDto {
 
     @IShowInForm(value = false)
     @IShowInTable(value = false)
-    private UUID psychologistId;
+    private UUID professionalId;
 
     @ILabel("Paciente")
     @IShowInForm
@@ -51,7 +51,11 @@ public class SessionPackageDto extends BaseDto {
     @IShowInTable
     private Integer totalSessions;
 
-    @ILabel("Valor do Pacote (R$)")
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    private Boolean singleSession;
+
+    @ILabel("Valor do Pacote")
     @IShowInForm
     @IShowInTable
     private java.math.BigDecimal price;

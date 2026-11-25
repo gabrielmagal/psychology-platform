@@ -1,50 +1,63 @@
-/**
- * Lê a mensagem de erro de uma resposta sem consumir o corpo duas vezes.
- *
- * O padrão espalhado pelas telas tentava `res.json()` e, no catch, `res.text()` — mas o
- * corpo de uma Response só pode ser lido uma vez, então o fallback sempre falhava e a
- * mensagem real do backend (que vem como texto puro nos 401/403) se perdia.
- */
-async function readErrorMessage(response) {
-    const fallback = `Erro ${response.status}`;
-    let body;
+import { ApiError } from "./errors";
 
+/**
+ * Lê o corpo de uma resposta de erro uma única vez e extrai o que der: a mensagem escrita
+ * para o usuário (`message`) e, nos erros internos, o código para o suporte.
+ */
+async function readError(response) {
+    let body = "";
     try {
         body = await response.text();
     } catch {
-        return fallback;
+        // sem corpo legível: fica só o status
     }
 
-    if (!body) return fallback;
-
-    try {
-        const data = JSON.parse(body);
-        return data?.details || data?.message || fallback;
-    } catch {
-        return body;
+    let message = "";
+    let code = null;
+    if (body) {
+        try {
+            const data = JSON.parse(body);
+            message = data?.message || "";
+            code = data?.errorId || null;
+            // Formato padrão do Quarkus para erro não tratado: {"details": "Error id <uuid>"}.
+            if (!code && typeof data?.details === "string") {
+                const match = data.details.match(/Error id ([\w-]+)/i);
+                if (match) code = match[1];
+            }
+        } catch {
+            // Texto puro (ex.: respostas 401/403 do filtro de autorização).
+            if (body.length < 300 && !body.trim().startsWith("<")) message = body.trim();
+        }
     }
+    // Detalhe técnico de erro interno não é mensagem para o usuário.
+    if (response.status >= 500 && response.status !== 502) message = "";
+
+    return new ApiError({ status: response.status, message, code });
 }
 
 export async function fetchWithAuth(url, options = {}, { onUnauthorized, onForbidden } = {}) {
-    const response = await fetch(url, options);
+    let response;
+    try {
+        response = await fetch(url, options);
+    } catch (err) {
+        if (err?.name === "AbortError") throw err;
+        // fetch só rejeita quando não houve resposta: rede fora, servidor fora ou CORS.
+        throw new ApiError({ network: true, message: "Sem conexão com o servidor." });
+    }
 
     if (!response.ok) {
-        const errorMsg = await readErrorMessage(response);
+        const error = await readError(response);
         if (response.status === 401 && onUnauthorized) onUnauthorized();
-        if (response.status === 403 && onForbidden) onForbidden();
-        throw new Error(errorMsg);
+        if (response.status === 403 && onForbidden && !error.message) onForbidden();
+        throw error;
     }
 
     return response;
 }
 
 /**
- * Wrapper de alto nível para as chamadas à API.
- *
- * Monta os headers `Authorization`/`Tenant` e devolve o JSON já desserializado. Antes cada
- * componente repetia esse cabeçalho e ~20 linhas de tratamento de erro que, na prática,
- * eram código morto: `fetchWithAuth` rejeita a promise em respostas não-ok, então o bloco
- * `else` dos chamadores nunca era alcançado.
+ * Chamada à API: monta `Authorization`/`Tenant` e devolve o JSON já desserializado.
+ * Em caso de falha rejeita com um {@link ApiError}.
  */
 export async function apiFetch(path, {
     keycloak,
@@ -79,7 +92,6 @@ export async function apiFetch(path, {
     const text = await response.text();
     if (!text) return null;
 
-    // Alguns endpoints (ex.: preferência de pagamento) devolvem texto puro, não JSON.
     try {
         return JSON.parse(text);
     } catch {
@@ -87,12 +99,39 @@ export async function apiFetch(path, {
     }
 }
 
-/** Normaliza a mensagem de erro para exibição. Devolve null quando a requisição foi cancelada. */
+/**
+ * Baixa um arquivo da API (PDF, anexo, planilha) com o token do usuário — um link comum
+ * não enviaria o cabeçalho de autorização. Devolve o Blob e o nome sugerido pelo servidor.
+ */
+export async function apiBlob(path, { keycloak, realm, onUnauthorized, onForbidden } = {}) {
+    const response = await fetchWithAuth(
+        `${process.env.REACT_APP_API_URL}${path}`,
+        { headers: { Authorization: "Bearer " + keycloak.token, Tenant: realm } },
+        { onUnauthorized, onForbidden }
+    );
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    return { blob: await response.blob(), fileName: match ? match[1] : null };
+}
+
+/** Entrega um Blob ao usuário como download. */
+export function saveBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName || "arquivo";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Compatibilidade com as telas antigas: devolve o erro (não só o texto), para que os
+ * diálogos mostrem título, explicação e orientação. Devolve null se a requisição foi
+ * cancelada.
+ */
 export function extractCleanErrorMessage(err) {
     if (err?.name === "AbortError") return null;
-    if (typeof err?.message === "string") {
-        const match = err.message.match(/: (.+)$/);
-        return match ? match[1] : err.message;
-    }
-    return "Erro inesperado.";
+    return err || "Erro inesperado.";
 }

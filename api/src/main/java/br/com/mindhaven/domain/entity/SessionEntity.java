@@ -31,11 +31,13 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "title")
     private String title;
 
-    @Column(name = "summary")
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
     // Anotação clínica privada: auditada como impressão digital, nunca copiada em claro.
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "private_notes", columnDefinition = "TEXT")
     private String privateNotes;
 
@@ -51,6 +53,12 @@ public class SessionEntity extends BaseEntity {
 
     @Column(name = "attended_at")
     private LocalDateTime attendedAt;
+
+    /** Evolução da sessão em texto corrido — o registro clínico do atendimento. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "evolution", columnDefinition = "TEXT")
+    private String evolution;
 
     @Column(name = "start_time")
     private java.time.LocalTime startTime;
@@ -73,7 +81,7 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    /** Quando o psicólogo enviou o lembrete da sessão. */
+    /** Quando o profissional enviou o lembrete da sessão. */
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 

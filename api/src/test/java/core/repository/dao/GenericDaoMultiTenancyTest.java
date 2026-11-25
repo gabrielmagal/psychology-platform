@@ -49,7 +49,7 @@ class GenericDaoMultiTenancyTest {
         String tenantA = "clinica_a";
         String tenantB = "clinica_b";
 
-        UserEntity savedA = dao.update(tenantA, newUser("11111111111", "Ana", UserType.PSICOLOGO));
+        UserEntity savedA = dao.update(tenantA, newUser("11111111111", "Ana", UserType.PROFISSIONAL));
         UserEntity savedB = dao.update(tenantB, newUser("22222222222", "Bruno", UserType.PACIENTE));
 
         assertNotNull(savedA.getId(), "merge deve devolver a entidade com o id gerado");
@@ -76,7 +76,7 @@ class GenericDaoMultiTenancyTest {
     void listAndCountAgreeOnSimpleFieldFilter() {
         String tenant = "clinica_filtro";
 
-        dao.update(tenant, newUser("33333333331", "Carla", UserType.PSICOLOGO));
+        dao.update(tenant, newUser("33333333331", "Carla", UserType.PROFISSIONAL));
         dao.update(tenant, newUser("33333333332", "Diego", UserType.PACIENTE));
         dao.update(tenant, newUser("33333333333", "Elisa", UserType.PACIENTE));
 

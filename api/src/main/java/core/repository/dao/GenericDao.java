@@ -129,6 +129,7 @@ public class GenericDao implements IGenericDao {
         if (!predicates.isEmpty()) {
             query.where(cb.and(predicates.toArray(new Predicate[0])));
         }
+        query.orderBy(ordering(filter, cb, root));
 
         return entityManager.createQuery(query)
                 .setFirstResult(firstResult(page, size))
@@ -338,6 +339,28 @@ public class GenericDao implements IGenericDao {
         } catch (IllegalStateException e) {
             return false;
         }
+    }
+
+    /**
+     * Ordem da listagem. Sem ORDER BY o banco pode devolver as linhas em qualquer ordem — e a
+     * paginação repetia ou pulava registros entre uma página e outra. O id entra sempre como
+     * desempate, para a ordem ser estável.
+     */
+    private <T> List<jakarta.persistence.criteria.Order> ordering(Filter filter, CriteriaBuilder cb, Root<T> root) {
+        List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
+        if (filter != null && filter.getSortingParams() != null) {
+            for (var sort : filter.getSortingParams()) {
+                if (sort.getField() == null || sort.getField().contains(".")) continue;
+                try {
+                    Path<?> path = root.get(sort.getField());
+                    orders.add("desc".equalsIgnoreCase(sort.getSort()) ? cb.desc(path) : cb.asc(path));
+                } catch (IllegalArgumentException e) {
+                    // campo que não existe na entidade: ignora, em vez de quebrar a listagem
+                }
+            }
+        }
+        orders.add(cb.asc(root.get("id")));
+        return orders;
     }
 
     private static int pageSize(int size) {

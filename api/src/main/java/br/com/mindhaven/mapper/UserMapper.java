@@ -7,9 +7,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "jakarta")
 public interface UserMapper extends BaseMapper<UserDto, UserEntity> {
-    @Mapping(target = "mercadoPagoInfo.user", ignore = true)
     UserDto toDto(UserEntity entity);
 
-    @Mapping(target = "mercadoPagoInfo.user", ignore = true)
     UserEntity toEntity(UserDto dto);
 }

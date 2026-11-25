@@ -1,6 +1,7 @@
 package br.com.mindhaven.domain.entity;
 
 import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import jakarta.persistence.Convert;
 import core.notes.ISensitive;
 import core.repository.model.BaseEntity;
 import jakarta.persistence.Column;
@@ -31,34 +32,41 @@ public class PatientRecordEntity extends BaseEntity {
     @JoinColumn(name = "patient_id")
     private UserEntity patient;
 
-    @Column(name = "psychologist_id")
-    private UUID psychologistId;
+    @Column(name = "professional_id")
+    private UUID professionalId;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "chief_complaint", columnDefinition = "TEXT")
     private String chiefComplaint;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "complaint_history", columnDefinition = "TEXT")
     private String complaintHistory;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "family_history", columnDefinition = "TEXT")
     private String familyHistory;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "health_history", columnDefinition = "TEXT")
     private String healthHistory;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "diagnostic_hypothesis", columnDefinition = "TEXT")
     private String diagnosticHypothesis;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "therapeutic_goals", columnDefinition = "TEXT")
     private String therapeuticGoals;
 
     @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
     @Column(name = "observations", columnDefinition = "TEXT")
     private String observations;
 

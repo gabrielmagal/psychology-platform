@@ -46,6 +46,26 @@ services:
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     restart: always
 
+  # Cópia de segurança diária do banco (aplicação e Keycloak). Ver docker/backup/README.md.
+  postgres-backup:
+    image: postgres:18
+    container_name: postgres-backup
+    env_file:
+      - ./database.dev.env
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-arquitetura}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-admin}
+      BACKUP_KEEP_DAYS: 30
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.3
     container_name: keycloak
@@ -75,8 +95,8 @@ services:
         condition: service_healthy
     # KC_HEALTH_ENABLED expõe /health/ready na porta de management (9000) para monitoração
     # externa. Não há healthcheck aqui porque a imagem do Keycloak não traz curl/wget.
-    #volumes:
-    #  - ./keycloak/themes:/opt/keycloak/themes
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.rule=Host(`auth.localhost`)"

@@ -14,21 +14,34 @@ import java.util.UUID;
 @ApplicationScoped
 public class AnnotationUseCaseImpl implements AnnotationUseCase {
     private final AnnotationRepository repository;
+    private final br.com.mindhaven.domain.repository.SessionRepository sessionRepository;
 
-    public AnnotationUseCaseImpl(AnnotationRepository repository) {
+    public AnnotationUseCaseImpl(AnnotationRepository repository,
+                                 br.com.mindhaven.domain.repository.SessionRepository sessionRepository) {
+        this.sessionRepository = sessionRepository;
         this.repository = repository;
     }
 
     public AnnotationEntity save(String tenant, UserEntity loggedUser, AnnotationEntity entity) {
+        // A sessão chega do cliente só como {"id": ...}, sem o pacote: a verificação de dono
+        // nunca passava e o profissional não conseguia anotar. Vale a sessão gravada.
+        if (entity.getSession() != null && entity.getSession().getId() != null) {
+            br.com.mindhaven.domain.entity.SessionEntity stored =
+                    sessionRepository.findById(tenant, entity.getSession().getId());
+            if (stored == null) {
+                throw core.error.BusinessException.invalid("Sessão não encontrada.");
+            }
+            entity.setSession(stored);
+        }
         return switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> repository.save(tenant, entity);
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 if (entity.getSession() != null &&
                         entity.getSession().getSessionPackage() != null &&
-                        entity.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+                        entity.getSession().getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     yield repository.save(tenant, entity);
                 }
-                throw new SecurityException("Psicólogo só pode criar anotações nas suas próprias sessões.");
+                throw new SecurityException("Profissional só pode criar anotações nas suas próprias sessões.");
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode criar anotações.");
         };
@@ -39,15 +52,17 @@ public class AnnotationUseCaseImpl implements AnnotationUseCase {
         if (original == null) {
             throw new IllegalArgumentException("Anotação não encontrada.");
         }
+        // A anotação continua na sessão em que foi criada, diga o cliente o que disser.
+        entity.setSession(original.getSession());
         return switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> repository.update(tenant, entity);
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 if (original.getSession() != null &&
                         original.getSession().getSessionPackage() != null &&
-                        original.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+                        original.getSession().getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     yield repository.update(tenant, entity);
                 }
-                throw new SecurityException("Psicólogo só pode alterar anotações das suas próprias sessões.");
+                throw new SecurityException("Profissional só pode alterar anotações das suas próprias sessões.");
             }
             case PACIENTE -> throw new SecurityException("Paciente não pode alterar anotações.");
         };
@@ -60,13 +75,13 @@ public class AnnotationUseCaseImpl implements AnnotationUseCase {
         }
         return switch (loggedUser.getUserType()) {
             case ADMINISTRADOR -> original;
-            case PSICOLOGO -> {
+            case PROFISSIONAL -> {
                 if (original.getSession() != null &&
                         original.getSession().getSessionPackage() != null &&
-                        original.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+                        original.getSession().getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     yield original;
                 }
-                throw new SecurityException("Psicólogo só pode ver suas próprias anotações.");
+                throw new SecurityException("Profissional só pode ver suas próprias anotações.");
             }
             case PACIENTE -> {
                 if (original.getSession() != null &&
@@ -88,14 +103,14 @@ public class AnnotationUseCaseImpl implements AnnotationUseCase {
             case ADMINISTRADOR:
                 repository.delete(tenant, id);
                 break;
-            case PSICOLOGO:
+            case PROFISSIONAL:
                 if (original.getSession() != null &&
                     original.getSession().getSessionPackage() != null &&
-                    original.getSession().getSessionPackage().getPsychologistId().equals(loggedUser.getId())) {
+                    original.getSession().getSessionPackage().getProfessionalId().equals(loggedUser.getId())) {
                     repository.delete(tenant, id);
                     break;
                 }
-                throw new SecurityException("Psicólogo só pode deletar anotações das suas próprias sessões.");
+                throw new SecurityException("Profissional só pode deletar anotações das suas próprias sessões.");
             case PACIENTE:
                 throw new SecurityException("Paciente não pode deletar anotações.");
             default:

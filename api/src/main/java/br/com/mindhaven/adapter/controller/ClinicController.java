@@ -192,7 +192,7 @@ public class ClinicController {
         try {
             return new java.math.BigDecimal(text).intValue();
         } catch (NumberFormatException e) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Número inválido.");
+            throw core.error.BusinessException.invalid("Número inválido.");
         }
     }
 
@@ -201,7 +201,7 @@ public class ClinicController {
         try {
             return text == null ? null : UUID.fromString(text);
         } catch (IllegalArgumentException e) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Identificador inválido.");
+            throw core.error.BusinessException.invalid("Identificador inválido.");
         }
     }
 
@@ -209,7 +209,7 @@ public class ClinicController {
         try {
             return value == null || value.isBlank() ? null : LocalDate.parse(value.trim());
         } catch (java.time.format.DateTimeParseException e) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Data inválida.");
+            throw core.error.BusinessException.invalid("Data inválida.");
         }
     }
 
@@ -217,7 +217,7 @@ public class ClinicController {
         try {
             return value == null ? null : LocalTime.parse(value);
         } catch (java.time.format.DateTimeParseException e) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Horário inválido.");
+            throw core.error.BusinessException.invalid("Horário inválido.");
         }
     }
 }

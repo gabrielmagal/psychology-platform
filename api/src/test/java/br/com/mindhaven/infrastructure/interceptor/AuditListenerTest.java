@@ -97,9 +97,11 @@ class AuditListenerTest {
                 "a impressão digital deveria mudar quando o campo muda");
     }
 
-    /** Extrai o primeiro sha256:… do snapshot. */
+    /** Extrai a impressão digital das notas privadas (há outros campos protegidos no snapshot). */
     private String fingerprintOf(String snapshot) {
-        int start = snapshot.indexOf("sha256:");
+        int field = snapshot.indexOf("\"privateNotes\"");
+        assertTrue(field >= 0, "snapshot sem o campo privateNotes: " + snapshot);
+        int start = snapshot.indexOf("sha256:", field);
         assertTrue(start >= 0, "snapshot sem impressão digital: " + snapshot);
         int end = snapshot.indexOf('"', start);
         return snapshot.substring(start, end < 0 ? snapshot.length() : end);

@@ -1,44 +1,62 @@
 import React, { Suspense, lazy, useState, useEffect, useCallback } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Navigation from "./components/Navigation";
-import AlertDialog from "./components/shared/dialog/AlertDialog";
-import {useRoles} from "./components/shared/UseRoles";
-import ConsentGate from "./components/pages/clinic/ConsentGate";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
 import { ToastContainer } from "react-toastify";
+import AppShell from "./components/layout/AppShell";
+import AlertDialog from "./components/shared/dialog/AlertDialog";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { Skeleton } from "./components/ui/Feedback";
+import { useRoles } from "./components/shared/UseRoles";
+import ConsentGate from "./components/pages/clinic/ConsentGate";
+import muiTheme from "./theme/muiTheme";
 
 // Cada tela vira um chunk próprio, carregado só quando o usuário navega até ela.
-// Antes tudo — inclusive as telas de auditoria e de Mercado Pago, que a maioria dos
-// perfis nunca abre — ia no bundle inicial e era baixado já no primeiro acesso.
 const Home = lazy(() => import("./components/Home"));
 const RetornoPagamentoPage = lazy(() => import("./components/pages/retorno-pagamento/RetornoPagamentoPage"));
 const UserCrud = lazy(() => import("./components/pages/user/UserCrud"));
 const SessionPackageCrud = lazy(() => import("./components/pages/session-package/SessionPackageCrud"));
 const AuditLogCrud = lazy(() => import("./components/pages/audit/AuditLogCrud"));
 const UserProfilePage = lazy(() => import("./components/pages/user/UserProfilePage"));
-const MercadoPagoInfoCrud = lazy(() => import("./components/pages/mercadopagoinfo/MercadoPagoInfoCrud"));
 const AgendaPage = lazy(() => import("./components/pages/clinic/AgendaPage"));
 const PatientRecordPage = lazy(() => import("./components/pages/clinic/PatientRecordPage"));
 const FinancePage = lazy(() => import("./components/pages/clinic/FinancePage"));
 const DocumentPage = lazy(() => import("./components/pages/clinic/DocumentPage"));
 const MoodDiaryPage = lazy(() => import("./components/pages/clinic/MoodDiaryPage"));
+const RetentionPage = lazy(() => import("./components/pages/clinic/RetentionPage"));
+const PaymentSettingsPage = lazy(() => import("./components/pages/payment/PaymentSettingsPage"));
+
+function PageFallback() {
+    return <div className="ui-page"><Skeleton rows={6} height={22} /></div>;
+}
+
+/** A barreira de erro precisa da rota atual para se limpar quando o usuário troca de tela. */
+function Screens({ children }) {
+    const location = useLocation();
+    return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
+}
 
 function App({ keycloak, realm }) {
-    const [alert, setAlert] = useState({ open: false, message: "" });
+    const [alert, setAlert] = useState({ open: false, title: "", message: "" });
     const [doLogin, setDoLogin] = useState(false);
 
     // Identidade estável: estas funções entram nas dependências dos efeitos das telas, e
     // recriá-las a cada render do App faria cada tela recarregar seus dados em laço.
     const handleUnauthorized = useCallback(() => {
-        setAlert({ open: true, message: "Sessão expirada. Faça login novamente." });
+        setAlert({ open: true, title: "Sua sessão expirou", message: "Por segurança, faça login novamente para continuar." });
         setDoLogin(true);
     }, []);
 
     const handleForbidden = useCallback(() => {
-        setAlert({ open: true, message: "Você não tem permissão para essa ação." });
+        setAlert({
+            open: true,
+            title: "Você não tem permissão para isso",
+            message: "Seu perfil não pode executar esta ação. Se precisar deste acesso, fale com o responsável pela clínica.",
+        });
     }, []);
 
-    const { isAdmin, isPsychologist, isPatient } = useRoles(keycloak);
-    const clinicProps = { keycloak, realm, onUnauthorized: handleUnauthorized, onForbidden: handleForbidden };
+    const { isAdmin, isProfessional, isPatient } = useRoles(keycloak);
+    const isStaff = isAdmin || isProfessional;
+    const pageProps = { keycloak, realm, onUnauthorized: handleUnauthorized, onForbidden: handleForbidden };
 
     useEffect(() => {
         if (doLogin && !alert.open) {
@@ -48,82 +66,40 @@ function App({ keycloak, realm }) {
     }, [doLogin, alert.open, keycloak]);
 
     return (
-        <BrowserRouter basename={`/${realm}`}>
-          <Navigation keycloak={keycloak} realm={realm} onUnauthorized={handleUnauthorized} onForbidden={handleForbidden} />
-          <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Carregando…</div>}>
-            <Routes>
-              <Route path="/retorno-pagamento" element={<RetornoPagamentoPage keycloak={keycloak} realm={realm} />} />
-              <Route path="/" element={<Home keycloak={keycloak} realm={realm} />} />
-              { (isAdmin || isPsychologist) &&
-                  (
-                    <Route
-                        path="/usuarios"
-                        element={
-                            <UserCrud
-                                keycloak={keycloak}
-                                realm={realm}
-                                onUnauthorized={handleUnauthorized}
-                                onForbidden={handleForbidden}
-                            />
-                        }
-                    />
-                  )
-              }
-              <Route path="/sessions-package" element={<SessionPackageCrud keycloak={keycloak} realm={realm} onUnauthorized={handleUnauthorized} onForbidden={handleForbidden} />} />
-              { (isAdmin) &&
-                (
-                    <Route
-                        path="/audit-log"
-                        element={
-                            <AuditLogCrud
-                                keycloak={keycloak}
-                                realm={realm}
-                                onUnauthorized={handleUnauthorized}
-                                onForbidden={handleForbidden}
-                            />
-                        }
-                    />
-                )
-              }
-
-              <Route path="/mercado-pago-info" element={
-                      <MercadoPagoInfoCrud
-                        keycloak={keycloak}
-                        realm={realm}
-                        onUnauthorized={handleUnauthorized}
-                        onForbidden={handleForbidden}
-                      />
-                  }
-              />
-              <Route path="/perfil" element={
-                        <UserProfilePage
-                            keycloak={keycloak}
-                            realm={realm}
-                            onUnauthorized={handleUnauthorized}
-                            onForbidden={handleForbidden}
-                        />
-                    }
-              />
-              <Route path="/agenda" element={<AgendaPage {...clinicProps} />} />
-              <Route path="/documento/:kind/:id" element={<DocumentPage {...clinicProps} />} />
-              { (isAdmin || isPsychologist) &&
-                  <Route path="/prontuario/:patientId" element={<PatientRecordPage {...clinicProps} />} />
-              }
-              { (isAdmin || isPsychologist) &&
-                  <Route path="/financeiro" element={<FinancePage {...clinicProps} />} />
-              }
-              { isPatient && <Route path="/diario" element={<MoodDiaryPage {...clinicProps} />} /> }
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </Suspense>
-          <ConsentGate {...clinicProps} />
-          <ToastContainer position="bottom-right" autoClose={4000} />
-          <AlertDialog
-            open={alert.open}
-            message={alert.message}
-            onClose={() => setAlert({ open: false, message: "" })}
-          />
-        </BrowserRouter>
+        <ThemeProvider theme={muiTheme}>
+            <BrowserRouter basename={`/${realm}`}>
+                <AppShell keycloak={keycloak} realm={realm}>
+                    <Screens>
+                        <Suspense fallback={<PageFallback />}>
+                            <Routes>
+                                <Route path="/" element={<Home keycloak={keycloak} realm={realm} />} />
+                                <Route path="/agenda" element={<AgendaPage {...pageProps} />} />
+                                <Route path="/sessions-package" element={<SessionPackageCrud {...pageProps} />} />
+                                <Route path="/retorno-pagamento" element={<RetornoPagamentoPage {...pageProps} />} />
+                                <Route path="/documento/:kind/:id" element={<DocumentPage {...pageProps} />} />
+                                <Route path="/perfil" element={<UserProfilePage {...pageProps} />} />
+                                {isStaff && <Route path="/usuarios" element={<UserCrud {...pageProps} />} />}
+                                {isStaff && <Route path="/prontuario/:patientId" element={<PatientRecordPage {...pageProps} />} />}
+                                {isStaff && <Route path="/financeiro" element={<FinancePage {...pageProps} />} />}
+                                {isStaff && <Route path="/recebimento-online" element={<PaymentSettingsPage {...pageProps} />} />}
+                                {isPatient && <Route path="/diario" element={<MoodDiaryPage {...pageProps} />} />}
+                                {isAdmin && <Route path="/audit-log" element={<AuditLogCrud {...pageProps} />} />}
+                                {isAdmin && <Route path="/guarda" element={<RetentionPage {...pageProps} />} />}
+                                <Route path="*" element={<Navigate to="/" />} />
+                            </Routes>
+                        </Suspense>
+                    </Screens>
+                </AppShell>
+                <ConsentGate {...pageProps} />
+                <ToastContainer position="bottom-right" autoClose={4500} hideProgressBar newestOnTop />
+                <AlertDialog
+                    open={alert.open}
+                    title={alert.title}
+                    message={alert.message}
+                    onClose={() => setAlert({ open: false, title: "", message: "" })}
+                />
+            </BrowserRouter>
+        </ThemeProvider>
     );
 }
 

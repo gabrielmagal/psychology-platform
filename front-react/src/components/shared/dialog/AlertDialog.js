@@ -1,30 +1,24 @@
 import React from "react";
-import { Button } from "@mui/material";
+import { FiInfo } from "react-icons/fi";
 
-export default function AlertDialog({ open, message, onClose }) {
+export default function AlertDialog({ open, title = "Atenção", message, onClose }) {
     if (!open) return null;
     return (
-        <div
-            style={{
-                position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                zIndex: 3000, backgroundColor: "rgba(0,0,0,0.6)",
-                display: "flex", alignItems: "center", justifyContent: "center"
-            }}
-        >
-            <div
-                style={{
-                    background: "white", padding: "2rem", borderRadius: "8px",
-                    maxWidth: "500px", width: "100%", textAlign: "center"
-                }}
-            >
-                <p>{message}</p>
-                <Button
-                    onClick={onClose}
-                    variant="contained"
-                    sx={{ mt: 2, backgroundColor: "#2196f3" }}
-                >
-                    OK
-                </Button>
+        <div className="ui-overlay" style={{ zIndex: 3100 }}>
+            <div className="ui-modal" role="alertdialog" aria-modal="true" aria-labelledby="alert-dialog-title">
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                    <div className="ui-state-icon"
+                         style={{ background: "var(--warning-100)", color: "var(--warning-600)", flex: "none", margin: 0 }}>
+                        <FiInfo aria-hidden="true" />
+                    </div>
+                    <div>
+                        <h2 id="alert-dialog-title" className="ui-modal-title" style={{ marginBottom: 6 }}>{title}</h2>
+                        <p style={{ color: "var(--ink-700)" }}>{message}</p>
+                    </div>
+                </div>
+                <div className="ui-modal-actions">
+                    <button type="button" className="ui-btn ui-btn--primary" onClick={onClose} autoFocus>OK</button>
+                </div>
             </div>
         </div>
     );

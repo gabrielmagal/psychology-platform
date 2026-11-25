@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import styles from "./Clinic.module.css";
-import { useApi, errorMessage } from "./clinicApi";
+import { ErrorState } from "../../ui/Feedback";
+import { useApi } from "./clinicApi";
 import { useRoles } from "../../shared/UseRoles";
 
 /**
@@ -35,7 +36,7 @@ export default function ConsentGate({ keycloak, realm, onUnauthorized, onForbidd
             await request(`/clinic/consent`, { method: "POST" });
             setPending(false);
         } catch (err) {
-            setError(errorMessage(err));
+            setError(err);
         } finally {
             setSaving(false);
         }
@@ -59,7 +60,7 @@ export default function ConsentGate({ keycloak, realm, onUnauthorized, onForbidd
                     Você pode baixar uma cópia dos seus dados a qualquer momento em <strong>Ver Perfil</strong> e pedir
                     correção ou exclusão ao seu psicólogo, nos termos da Lei Geral de Proteção de Dados.
                 </p>
-                {error && <div className={styles.error}>{error}</div>}
+                {error && <ErrorState error={error} compact />}
                 <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
                     <span>Li e concordo com o tratamento dos meus dados para o atendimento psicológico.</span>

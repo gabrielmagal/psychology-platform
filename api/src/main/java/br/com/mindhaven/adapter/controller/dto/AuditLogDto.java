@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AuditLogDto extends BaseDto {
 
-    @ILabel("Nome Entidade")
+    @ILabel("Registro")
     @IShowInForm
     @IShowInTable
     @NotNull
@@ -26,7 +26,7 @@ public class AuditLogDto extends BaseDto {
 
     @ILabel("Id Entidade")
     @IShowInForm
-    @IShowInTable
+    @IShowInTable(value = false)
     @NotNull
     private String entityId;
 
@@ -38,23 +38,23 @@ public class AuditLogDto extends BaseDto {
 
     @ILabel("Id Keycloak")
     @IShowInForm
-    @IShowInTable
+    @IShowInTable(value = false)
     @NotNull
     private String keycloakUserId;
 
     @ILabel("Valor anterior")
     @IShowInForm
-    @IShowInTable
+    @IShowInTable(value = false)
     @NotNull
     private String oldValue;
 
     @ILabel("Valor novo")
     @IShowInForm
-    @IShowInTable
+    @IShowInTable(value = false)
     @NotNull
     private String newValue;
 
-    @ILabel("Data/Hora")
+    @ILabel("Quando")
     @IShowInForm
     @IShowInTable
     @NotNull

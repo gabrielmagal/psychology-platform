@@ -1,6 +1,5 @@
 package br.com.mindhaven.infrastructure.persistence;
 
-import br.com.mindhaven.domain.entity.MercadoPagoInfoEntity;
 import br.com.mindhaven.domain.entity.PaymentEntity;
 import br.com.mindhaven.domain.repository.PaymentRepository;
 import core.repository.dao.GenericDao;
@@ -64,13 +63,5 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             payment.setPaymentDate(paymentDate);
             dao.update(tenant, payment);
         }
-    }
-
-    @Override
-    public MercadoPagoInfoEntity findMercadoPagoInfoByPsychologistId(String tenant, java.util.UUID psychologistId) {
-        var filter = new Filter();
-        filter.setFilterParams(List.of(new FilterParam("user.id", psychologistId.toString())));
-        List<MercadoPagoInfoEntity> result = dao.filteredFindPaged(tenant, filter, 0, 1, MercadoPagoInfoEntity.class);
-        return result.isEmpty() ? null : result.getFirst();
     }
 }

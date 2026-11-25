@@ -2,7 +2,19 @@ import React, { useMemo } from "react"
 import styles from "./DynamicTable.module.css"
 import SubEntityButton from "./SubEntityButton"
 import dayjs from 'dayjs'
+import { FiEdit2, FiTrash2 } from "react-icons/fi"
 import {getUserRoles} from "../../shared/Auth";
+
+// Cor do selo por valor de enumeração; o que não estiver aqui sai no tom neutro de informação.
+const ENUM_TONE = {
+  REALIZADA: "ui-badge--success",
+  FALTA: "ui-badge--danger",
+  CANCELADA: "",
+  AGENDADA: "ui-badge--info",
+  ADMINISTRADOR: "ui-badge--warning",
+  PROFISSIONAL: "ui-badge--info",
+  PACIENTE: "",
+};
 
 const DynamicTable = ({
                         metadata,
@@ -17,7 +29,11 @@ const DynamicTable = ({
                         renderExtraAction,
                         allowedRolesToEdit = [],
                         allowedRolesToDelete = [],
-                        allowedRolesToSubEntity = []
+                        allowedRolesToSubEntity = [],
+                        // { campo: (valor, item) => conteúdo } — apresentação própria de uma coluna.
+                        cellFormatters = {},
+                        // Colunas que a descrição da entidade mostraria, mas esta tela dispensa.
+                        hideColumns = []
   }) => {
   const userRoles = getUserRoles(keycloak);
   const hasAnyRole = (roles) => roles.length === 0 || roles.some((r) => userRoles.includes(r));
@@ -36,13 +52,19 @@ const DynamicTable = ({
     }), [metadata]);
 
   const fields = useMemo(
-    () => Object.entries(metadata.properties).filter(([_, meta]) => meta.showInTable),
-    [metadata]
+    () => Object.entries(metadata.properties)
+      .filter(([key, meta]) => meta.showInTable && !hideColumns.includes(key)),
+    // eslint-disable-next-line
+    [metadata, hideColumns.join(",")]
   );
 
   const renderValue = (item, key) => {
     const value = item[key]
     const meta = metadata.properties[key]
+
+    if (cellFormatters[key]) {
+      return cellFormatters[key](value, item)
+    }
 
     if (value && typeof value === "object") {
       const showField = meta.showField;
@@ -58,6 +80,27 @@ const DynamicTable = ({
       return value.label || value.name || value.codigo || value.id || "[objeto]";
     }
 
+    // Sem valor: um traço discreto, em vez de "Invalid Date" ou de uma célula em branco.
+    if (value === null || value === undefined || value === "") {
+      return <span className={styles.empty}>—</span>
+    }
+
+    // CPF e telefone chegam só com dígitos: na tela vão com a máscara de leitura.
+    if (key === "cpf" && /^\d{11}$/.test(value)) {
+      return `${value.slice(0, 3)}.${value.slice(3, 6)}.${value.slice(6, 9)}-${value.slice(9)}`
+    }
+    if (/phone/i.test(key) && /^\d{10,11}$/.test(value)) {
+      return `(${value.slice(0, 2)}) ${value.slice(2, value.length - 4)}-${value.slice(-4)}`
+    }
+
+    if (meta.type?.toLowerCase() === "localtime") {
+      return String(value).slice(0, 5)
+    }
+
+    if (meta.type?.toLowerCase() === "bigdecimal") {
+      return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    }
+
     if (meta.type?.toLowerCase().includes("date")) {
       const isDateTime = meta.type.toLowerCase().includes("time")
       return isDateTime
@@ -66,11 +109,11 @@ const DynamicTable = ({
     }
 
     if (meta.type?.toLowerCase() === "boolean") {
-      return value === true ? "Sim" : value === false ? "Não" : "";
+      return <span className={`ui-badge ${value ? "ui-badge--success" : ""}`}>{value ? "Sim" : "Não"}</span>;
     }
 
     if (meta.enum && meta.enumValues && typeof meta.enumValues === "object" && !Array.isArray(meta.enumValues)) {
-      return meta.enumValues[value] || value;
+      return <span className={`ui-badge ${ENUM_TONE[value] || "ui-badge--info"}`}>{meta.enumValues[value] || value}</span>;
     }
 
     return value ?? ""
@@ -85,7 +128,7 @@ const DynamicTable = ({
                 <th key={key}>{meta.label || key}</th>
               ))}
               {
-                  (hasAnyRole(allowedRolesToEdit) || hasAnyRole(allowedRolesToDelete) || subEntities.length > 0 || renderExtraAction) && <th>Ações</th>
+                  (hasAnyRole(allowedRolesToEdit) || hasAnyRole(allowedRolesToDelete) || subEntities.length > 0 || renderExtraAction) && <th className={styles.actionsHeader}>Ações</th>
               }
             </tr>
           </thead>
@@ -96,15 +139,17 @@ const DynamicTable = ({
             {data.map((item, index) => (
               <tr key={item.id ?? index}>
                 {fields.map(([key]) => (
-                  <td key={key}>{renderValue(item, key)}</td>
+                  <td key={key} title={typeof item[key] === "string" ? item[key] : undefined}>{renderValue(item, key)}</td>
                 ))}
-                <td>
+                <td className={styles.actionsTd}>
                   <div className={styles.actionsCell}>
                     {hasAnyRole(allowedRolesToEdit) && (
-                        <button onClick={() => onEdit(item)} className={styles.editBtn}>Editar</button>
+                        <button onClick={() => onEdit(item)} className={`${styles.editBtn} ${styles.iconBtn}`}
+                                title="Editar" aria-label="Editar"><FiEdit2 aria-hidden="true" /></button>
                     )}
                     {hasAnyRole(allowedRolesToDelete) && (
-                        <button onClick={() => onDelete(item.id)} className={styles.deleteBtn}>Excluir</button>
+                        <button onClick={() => onDelete(item.id)} className={`${styles.deleteBtn} ${styles.iconBtn}`}
+                                title="Excluir" aria-label="Excluir"><FiTrash2 aria-hidden="true" /></button>
                     )}
 
                     {hasAnyRole(allowedRolesToSubEntity) && subEntities.map(({ key, label, parentField, prop }) => (

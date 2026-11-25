@@ -39,7 +39,7 @@ import java.util.UUID;
  * financeiro, consentimento (LGPD) e acompanhamento do paciente.
  *
  * <p>Todos os métodos recebem o tenant e o usuário logado e aplicam a regra de visibilidade
- * aqui dentro: administrador vê tudo, psicólogo vê só os próprios pacotes/pacientes e
+ * aqui dentro: administrador vê tudo, profissional vê só os próprios pacotes/pacientes e
  * paciente vê só o que é dele. As respostas são mapas simples, com datas já em texto, para
  * não depender do serializador JSON em uso.
  */
@@ -61,6 +61,9 @@ public class ClinicService {
     @Inject
     SessionUseCase sessionUseCase;
 
+    @Inject
+    PatientAccess access;
+
     // ------------------------------------------------------------------ agenda
 
     public List<Map<String, Object>> agenda(String tenant, UserEntity user, LocalDate from, LocalDate to) {
@@ -79,7 +82,7 @@ public class ClinicService {
 
         boolean isPatient = user.getUserType() == UserType.PACIENTE;
         Set<UUID> rated = isPatient ? ratedSessionIds(user) : Set.of();
-        Map<UUID, String> psychologistNames = new HashMap<>();
+        Map<UUID, String> professionalNames = new HashMap<>();
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (SessionEntity s : sessions) {
@@ -97,11 +100,13 @@ public class ClinicService {
             item.put("remindedAt", text(s.getRemindedAt()));
             item.put("packageId", p.getId());
             item.put("packageTitle", p.getPackageTitle());
+            item.put("singleSession", Boolean.TRUE.equals(p.getSingleSession()));
+            if (!isPatient) item.put("hasEvolution", s.getEvolution() != null && !s.getEvolution().isBlank());
             item.put("patientId", p.getPatient().getId());
             item.put("patientName", fullName(p.getPatient()));
             if (isPatient) {
-                item.put("psychologistName", psychologistNames.computeIfAbsent(
-                        p.getPsychologistId(), id -> fullName(id == null ? null : em.find(UserEntity.class, id))));
+                item.put("professionalName", professionalNames.computeIfAbsent(
+                        p.getProfessionalId(), id -> fullName(id == null ? null : em.find(UserEntity.class, id))));
                 item.put("rated", rated.contains(s.getId()));
             } else {
                 item.put("patientPhone", p.getPatient().getPhoneNumber());
@@ -116,8 +121,8 @@ public class ClinicService {
                                Integer durationMinutes, SessionModality modality, String meetingLink, String title,
                                int repeatWeeks) {
         requireStaff(user);
-        if (packageId == null) throw br.com.mindhaven.application.BusinessException.invalid("Informe o pacote de sessões.");
-        if (date == null || startTime == null) throw br.com.mindhaven.application.BusinessException.invalid("Informe a data e o horário.");
+        if (packageId == null) throw core.error.BusinessException.invalid("Informe o pacote de sessões.");
+        if (date == null || startTime == null) throw core.error.BusinessException.invalid("Informe a data e o horário.");
         int total = Math.max(1, Math.min(repeatWeeks, MAX_REPEAT_WEEKS));
 
         List<UUID> created = new ArrayList<>();
@@ -155,7 +160,7 @@ public class ClinicService {
     public void confirm(String tenant, UserEntity user, UUID sessionId) {
         SessionEntity session = ownedSession(tenant, user, sessionId);
         if (statusOf(session) != SessionStatus.AGENDADA) {
-            throw br.com.mindhaven.application.BusinessException.conflict("Só é possível confirmar uma sessão agendada.");
+            throw core.error.BusinessException.conflict("Só é possível confirmar uma sessão agendada.");
         }
         session.setConfirmedAt(LocalDateTime.now());
     }
@@ -169,10 +174,10 @@ public class ClinicService {
         if (user.getUserType() != UserType.PACIENTE) {
             throw new SecurityException("Só o paciente avalia a sessão.");
         }
-        if (rating < 1 || rating > 5) throw br.com.mindhaven.application.BusinessException.invalid("A nota vai de 1 a 5.");
+        if (rating < 1 || rating > 5) throw core.error.BusinessException.invalid("A nota vai de 1 a 5.");
         SessionEntity session = ownedSession(tenant, user, sessionId);
         if (statusOf(session) != SessionStatus.REALIZADA) {
-            throw br.com.mindhaven.application.BusinessException.conflict("Só é possível avaliar uma sessão já realizada.");
+            throw core.error.BusinessException.conflict("Só é possível avaliar uma sessão já realizada.");
         }
         SessionRatingEntity entity = em.createQuery(
                         "select r from SessionRatingEntity r where r.session.id = :s and r.patient.id = :p",
@@ -189,31 +194,58 @@ public class ClinicService {
 
     // -------------------------------------------------------------- prontuário
 
+    /**
+     * Anamnese do paciente. Cada profissional tem a sua: o mesmo paciente pode ser atendido
+     * por mais de um, e o que um escreve o outro não vê. O administrador vê a de todos, só
+     * para leitura.
+     */
     public Map<String, Object> patientRecord(String tenant, UserEntity user, UUID patientId) {
         UserEntity patient = accessiblePatient(tenant, user, patientId);
-        PatientRecordEntity record = findRecord(patientId);
-
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("patient", patientCard(patient));
-        result.put("chiefComplaint", record == null ? null : record.getChiefComplaint());
-        result.put("complaintHistory", record == null ? null : record.getComplaintHistory());
-        result.put("familyHistory", record == null ? null : record.getFamilyHistory());
-        result.put("healthHistory", record == null ? null : record.getHealthHistory());
-        result.put("diagnosticHypothesis", record == null ? null : record.getDiagnosticHypothesis());
-        result.put("therapeuticGoals", record == null ? null : record.getTherapeuticGoals());
-        result.put("observations", record == null ? null : record.getObservations());
-        result.put("updatedAt", record == null ? null : text(record.getUpdatedAt()));
+
+        if (user.getUserType() == UserType.ADMINISTRADOR) {
+            List<Map<String, Object>> records = new ArrayList<>();
+            for (PatientRecordEntity record : em.createQuery(
+                            "select r from PatientRecordEntity r where r.patient.id = :p order by r.updatedAt desc",
+                            PatientRecordEntity.class).setParameter("p", patientId).getResultList()) {
+                Map<String, Object> row = recordFields(record);
+                UserEntity author = record.getProfessionalId() == null ? null : em.find(UserEntity.class, record.getProfessionalId());
+                row.put("professionalName", author == null ? "Não identificado" : fullName(author));
+                records.add(row);
+            }
+            result.put("readOnly", true);
+            result.put("records", records);
+            return result;
+        }
+        result.putAll(recordFields(findRecord(patientId, user.getId())));
         return result;
     }
 
+    private static Map<String, Object> recordFields(PatientRecordEntity record) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("chiefComplaint", record == null ? null : record.getChiefComplaint());
+        fields.put("complaintHistory", record == null ? null : record.getComplaintHistory());
+        fields.put("familyHistory", record == null ? null : record.getFamilyHistory());
+        fields.put("healthHistory", record == null ? null : record.getHealthHistory());
+        fields.put("diagnosticHypothesis", record == null ? null : record.getDiagnosticHypothesis());
+        fields.put("therapeuticGoals", record == null ? null : record.getTherapeuticGoals());
+        fields.put("observations", record == null ? null : record.getObservations());
+        fields.put("updatedAt", record == null ? null : text(record.getUpdatedAt()));
+        return fields;
+    }
+
     public void savePatientRecord(String tenant, UserEntity user, UUID patientId, Map<String, String> fields) {
+        if (user.getUserType() != UserType.PROFISSIONAL) {
+            throw new SecurityException("A anamnese é registrada pelo profissional que atende o paciente.");
+        }
         UserEntity patient = accessiblePatient(tenant, user, patientId);
-        PatientRecordEntity record = findRecord(patientId);
+        PatientRecordEntity record = findRecord(patientId, user.getId());
         if (record == null) {
             record = new PatientRecordEntity();
             record.setPatient(patient);
+            record.setProfessionalId(user.getId());
         }
-        if (user.getUserType() == UserType.PSICOLOGO) record.setPsychologistId(user.getId());
         record.setChiefComplaint(fields.get("chiefComplaint"));
         record.setComplaintHistory(fields.get("complaintHistory"));
         record.setFamilyHistory(fields.get("familyHistory"));
@@ -228,11 +260,11 @@ public class ClinicService {
     /** Linha do tempo do paciente: sessões (mais recente primeiro) com resumo e anotações. */
     public List<Map<String, Object>> timeline(String tenant, UserEntity user, UUID patientId) {
         accessiblePatient(tenant, user, patientId);
-        boolean onlyMine = user.getUserType() == UserType.PSICOLOGO;
+        boolean onlyMine = user.getUserType() == UserType.PROFISSIONAL;
 
         TypedQuery<SessionEntity> query = em.createQuery(
                 "select s from SessionEntity s join fetch s.sessionPackage p where p.patient.id = :patient"
-                        + (onlyMine ? " and p.psychologistId = :me" : "")
+                        + (onlyMine ? " and p.professionalId = :me" : "")
                         + " order by s.dateSession desc, s.startTime desc", SessionEntity.class)
                 .setParameter("patient", patientId);
         if (onlyMine) query.setParameter("me", user.getId());
@@ -245,6 +277,11 @@ public class ClinicService {
             item.put("startTime", s.getStartTime() == null ? null : s.getStartTime().format(HHMM));
             item.put("status", statusOf(s).name());
             item.put("title", s.getTitle());
+            if (!onlyMine) {
+                UUID owner = s.getSessionPackage().getProfessionalId();
+                item.put("professionalName", owner == null ? null : fullName(em.find(UserEntity.class, owner)));
+            }
+            item.put("evolution", s.getEvolution());
             item.put("summary", s.getSummary());
             item.put("privateNotes", s.getPrivateNotes());
             item.put("packageTitle", s.getSessionPackage().getPackageTitle());
@@ -271,11 +308,11 @@ public class ClinicService {
         dao.defineSchema(tenant);
         PaymentEntity payment = em.find(PaymentEntity.class, paymentId);
         if (payment == null || payment.getSessionPackage() == null) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Pagamento não encontrado.");
+            throw core.error.BusinessException.invalid("Pagamento não encontrado.");
         }
         SessionPackageEntity pkg = payment.getSessionPackage();
         requirePackageAccess(user, pkg);
-        if (!payment.isPaid()) throw br.com.mindhaven.application.BusinessException.conflict("Este pagamento ainda não foi confirmado.");
+        if (!payment.isPaid()) throw core.error.BusinessException.conflict("Este pagamento ainda não foi confirmado.");
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("number", payment.getId().toString().substring(0, 8).toUpperCase());
@@ -284,7 +321,7 @@ public class ClinicService {
         result.put("paymentMethod", payment.getPaymentMethod() == null ? null : payment.getPaymentMethod().name());
         result.put("packageTitle", pkg.getPackageTitle());
         result.put("patient", patientCard(pkg.getPatient()));
-        result.put("psychologist", professionalCard(pkg.getPsychologistId()));
+        result.put("professional", professionalCard(pkg.getProfessionalId()));
         return result;
     }
 
@@ -292,7 +329,7 @@ public class ClinicService {
     public Map<String, Object> attendance(String tenant, UserEntity user, UUID sessionId) {
         SessionEntity session = ownedSession(tenant, user, sessionId);
         if (statusOf(session) != SessionStatus.REALIZADA) {
-            throw br.com.mindhaven.application.BusinessException.conflict("A declaração só existe para sessão realizada.");
+            throw core.error.BusinessException.conflict("A declaração só existe para sessão realizada.");
         }
         SessionPackageEntity pkg = session.getSessionPackage();
         Map<String, Object> result = new LinkedHashMap<>();
@@ -300,7 +337,7 @@ public class ClinicService {
         result.put("startTime", session.getStartTime() == null ? null : session.getStartTime().format(HHMM));
         result.put("durationMinutes", session.getDurationMinutes() == null ? 50 : session.getDurationMinutes());
         result.put("patient", patientCard(pkg.getPatient()));
-        result.put("psychologist", professionalCard(pkg.getPsychologistId()));
+        result.put("professional", professionalCard(pkg.getProfessionalId()));
         return result;
     }
 
@@ -311,8 +348,8 @@ public class ClinicService {
         dao.defineSchema(tenant);
         if (from == null) from = LocalDate.now().withDayOfMonth(1);
         if (to == null) to = from.plusMonths(1).minusDays(1);
-        boolean onlyMine = user.getUserType() == UserType.PSICOLOGO;
-        String mine = onlyMine ? " and pay.sessionPackage.psychologistId = :me" : "";
+        boolean onlyMine = user.getUserType() == UserType.PROFISSIONAL;
+        String mine = onlyMine ? " and pay.sessionPackage.professionalId = :me" : "";
 
         TypedQuery<BigDecimal> receivedQuery = em.createQuery(
                 "select coalesce(sum(pay.amount), 0) from PaymentEntity pay where pay.paid = true "
@@ -332,7 +369,7 @@ public class ClinicService {
 
         TypedQuery<SessionPackageEntity> packagesQuery = em.createQuery(
                 "select p from SessionPackageEntity p join fetch p.patient where p.price is not null"
-                        + (onlyMine ? " and p.psychologistId = :me" : ""), SessionPackageEntity.class);
+                        + (onlyMine ? " and p.professionalId = :me" : ""), SessionPackageEntity.class);
         if (onlyMine) packagesQuery.setParameter("me", user.getId());
 
         BigDecimal outstanding = BigDecimal.ZERO;
@@ -356,7 +393,7 @@ public class ClinicService {
 
         TypedQuery<SessionEntity> sessionsQuery = em.createQuery(
                 "select s from SessionEntity s join s.sessionPackage p where s.dateSession between :from and :to"
-                        + (onlyMine ? " and p.psychologistId = :me" : ""), SessionEntity.class)
+                        + (onlyMine ? " and p.professionalId = :me" : ""), SessionEntity.class)
                 .setParameter("from", from).setParameter("to", to);
         if (onlyMine) sessionsQuery.setParameter("me", user.getId());
         Map<String, Integer> sessionsByStatus = new LinkedHashMap<>();
@@ -402,8 +439,8 @@ public class ClinicService {
 
     /**
      * Portabilidade (LGPD, art. 18): tudo o que a plataforma guarda sobre o próprio usuário.
-     * As notas privadas do psicólogo não entram — são registro do profissional, não dado
-     * fornecido pelo titular; o acesso ao prontuário é pedido ao psicólogo.
+     * As notas privadas do profissional não entram — são registro do profissional, não dado
+     * fornecido pelo titular; o acesso ao prontuário é pedido ao profissional.
      */
     public Map<String, Object> exportMyData(String tenant, UserEntity user) {
         dao.defineSchema(tenant);
@@ -477,10 +514,10 @@ public class ClinicService {
         if (user.getUserType() != UserType.PACIENTE) {
             throw new SecurityException("O diário de humor é preenchido pelo paciente.");
         }
-        if (mood < 1 || mood > 5) throw br.com.mindhaven.application.BusinessException.invalid("O humor vai de 1 a 5.");
+        if (mood < 1 || mood > 5) throw core.error.BusinessException.invalid("O humor vai de 1 a 5.");
         dao.defineSchema(tenant);
         LocalDate day = date == null ? LocalDate.now() : date;
-        if (day.isAfter(LocalDate.now())) throw br.com.mindhaven.application.BusinessException.invalid("Não é possível registrar data futura.");
+        if (day.isAfter(LocalDate.now())) throw core.error.BusinessException.invalid("Não é possível registrar data futura.");
 
         MoodEntryEntity entry = em.createQuery(
                         "select m from MoodEntryEntity m where m.patient.id = :p and m.entryDate = :d",
@@ -554,15 +591,17 @@ public class ClinicService {
                 .setParameter("p", patient.getId()).getResultList());
     }
 
-    private PatientRecordEntity findRecord(UUID patientId) {
-        return em.createQuery("select r from PatientRecordEntity r where r.patient.id = :p", PatientRecordEntity.class)
-                .setParameter("p", patientId).getResultStream().findFirst().orElse(null);
+    private PatientRecordEntity findRecord(UUID patientId, UUID professionalId) {
+        return em.createQuery("select r from PatientRecordEntity r where r.patient.id = :p and r.professionalId = :pro",
+                        PatientRecordEntity.class)
+                .setParameter("p", patientId).setParameter("pro", professionalId)
+                .getResultStream().findFirst().orElse(null);
     }
 
     private static String scope(UserEntity user, String packageAlias) {
         return switch (user.getUserType()) {
             case ADMINISTRADOR -> "";
-            case PSICOLOGO -> " and " + packageAlias + ".psychologistId = :me";
+            case PROFISSIONAL -> " and " + packageAlias + ".professionalId = :me";
             case PACIENTE -> " and " + packageAlias + ".patient.id = :me";
         };
     }
@@ -573,14 +612,14 @@ public class ClinicService {
 
     private static void requireStaff(UserEntity user) {
         if (user.getUserType() == UserType.PACIENTE) {
-            throw new SecurityException("Ação restrita ao psicólogo.");
+            throw new SecurityException("Ação restrita ao profissional.");
         }
     }
 
     private static void requirePackageAccess(UserEntity user, SessionPackageEntity pkg) {
         boolean allowed = switch (user.getUserType()) {
             case ADMINISTRADOR -> true;
-            case PSICOLOGO -> user.getId().equals(pkg.getPsychologistId());
+            case PROFISSIONAL -> user.getId().equals(pkg.getProfessionalId());
             case PACIENTE -> pkg.getPatient() != null && user.getId().equals(pkg.getPatient().getId());
         };
         if (!allowed) throw new SecurityException("Você não tem acesso a este registro.");
@@ -590,32 +629,22 @@ public class ClinicService {
         dao.defineSchema(tenant);
         SessionEntity session = em.find(SessionEntity.class, sessionId);
         if (session == null || session.getSessionPackage() == null) {
-            throw br.com.mindhaven.application.BusinessException.invalid("Sessão não encontrada.");
+            throw core.error.BusinessException.invalid("Sessão não encontrada.");
         }
         requirePackageAccess(user, session.getSessionPackage());
         return session;
     }
 
     /**
-     * Prontuário é do psicólogo que atende: o paciente precisa ter pacote com ele ou ter sido
-     * cadastrado por ele. O próprio paciente não lê o prontuário por aqui.
+     * O prontuário é de quem atende. O administrador vê tudo; o profissional, só os pacientes
+     * associados a ele; o próprio paciente não lê o prontuário por aqui.
      */
     private UserEntity accessiblePatient(String tenant, UserEntity user, UUID patientId) {
         requireStaff(user);
         dao.defineSchema(tenant);
         UserEntity patient = em.find(UserEntity.class, patientId);
-        if (patient == null) throw br.com.mindhaven.application.BusinessException.invalid("Paciente não encontrado.");
-        if (user.getUserType() == UserType.ADMINISTRADOR) return patient;
-
-        boolean registeredByMe = user.getKeycloakId() != null
-                && user.getKeycloakId().equals(patient.getRegisteredByKeycloakId());
-        long packages = em.createQuery(
-                        "select count(p) from SessionPackageEntity p where p.patient.id = :patient "
-                                + "and p.psychologistId = :me", Long.class)
-                .setParameter("patient", patientId).setParameter("me", user.getId()).getSingleResult();
-        if (!registeredByMe && packages == 0) {
-            throw new SecurityException("Você não atende este paciente.");
-        }
+        if (patient == null) throw core.error.BusinessException.invalid("Paciente não encontrado.");
+        access.requireAssociated(tenant, user, patient);
         return patient;
     }
 
@@ -631,15 +660,16 @@ public class ClinicService {
         return card;
     }
 
-    private Map<String, Object> professionalCard(UUID psychologistId) {
+    private Map<String, Object> professionalCard(UUID professionalId) {
         Map<String, Object> card = new LinkedHashMap<>();
-        UserEntity psychologist = psychologistId == null ? null : em.find(UserEntity.class, psychologistId);
-        if (psychologist == null) return card;
-        card.put("name", fullName(psychologist));
-        card.put("cpf", psychologist.getCpf());
-        card.put("crp", psychologist.getCrp());
-        card.put("address", psychologist.getAddress());
-        card.put("phoneNumber", psychologist.getPhoneNumber());
+        UserEntity professional = professionalId == null ? null : em.find(UserEntity.class, professionalId);
+        if (professional == null) return card;
+        card.put("id", professional.getId());
+        card.put("name", fullName(professional));
+        card.put("cpf", professional.getCpf());
+        card.put("crp", professional.getCrp());
+        card.put("address", professional.getAddress());
+        card.put("phoneNumber", professional.getPhoneNumber());
         return card;
     }
 

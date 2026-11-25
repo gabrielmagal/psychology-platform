@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "react-toastify";
 import styles from "./Clinic.module.css";
+import { ErrorState, Skeleton } from "../../ui/Feedback";
+import { errorText } from "../../../utils/errors";
 import { useApi, errorMessage, formatDate, MOODS } from "./clinicApi";
 
 export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbidden }) {
@@ -25,7 +27,7 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
                 setNote(todayEntry.note || "");
             }
         } catch (err) {
-            setError(errorMessage(err));
+            setError(err);
         }
     }, [request, today]);
 
@@ -43,7 +45,7 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
             toast.success("Registro salvo.");
             load();
         } catch (err) {
-            toast.error(errorMessage(err));
+            toast.error(errorText(err));
         } finally {
             setSaving(false);
         }
@@ -55,14 +57,14 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
         <div className={styles.page}>
             <div className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>🌤️ Diário de humor</h1>
+                    <h1 className={styles.title}>Diário de humor</h1>
                     <p className={styles.subtitle}>
                         Um registro por dia. Seu psicólogo vê estes registros para acompanhar você entre as sessões.
                     </p>
                 </div>
             </div>
 
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <ErrorState error={error} onRetry={load} />}
 
             <div className={styles.stack}>
                 <form className={`${styles.card} ${styles.form}`} onSubmit={save}>

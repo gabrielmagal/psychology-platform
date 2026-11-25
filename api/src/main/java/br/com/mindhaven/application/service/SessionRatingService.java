@@ -22,15 +22,15 @@ public class SessionRatingService {
         return dao.update(tenant, entity);
     }
 
-    public Double calculateAverageByPsychologist(UUID psychologistId) {
+    public Double calculateAverageByProfessional(UUID professionalId) {
         return em.createQuery("""
             SELECT AVG(r.rating)
             FROM SessionRatingEntity r
             JOIN r.session s
             JOIN s.sessionPackage sp
-            WHERE sp.psychologistId = :id
+            WHERE sp.professionalId = :id
         """, Double.class)
-                .setParameter("id", psychologistId)
+                .setParameter("id", professionalId)
                 .getSingleResult();
     }
 }

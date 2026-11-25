@@ -79,8 +79,4 @@ public class UserEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false)
     private UserType userType;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.PERSIST, orphanRemoval = true)
-    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
-    private MercadoPagoInfoEntity mercadoPagoInfo;
 }

@@ -60,13 +60,19 @@ public class SessionDto extends BaseDto {
     @IShowInTable
     private String title;
 
+    @ILabel("Evolução")
+    @IShowInForm
+    @IMultiline(rows = 8)
+    private String evolution;
+
     @ILabel("Resumo")
     @IShowInForm
-    @IShowInTable
+    @IMultiline(rows = 3)
     private String summary;
 
-    @ILabel("Notas")
+    @ILabel("Notas privadas")
     @IShowInForm
+    @IMultiline(rows = 4)
     private String privateNotes;
 
     @ILabel("Presença Confirmada")

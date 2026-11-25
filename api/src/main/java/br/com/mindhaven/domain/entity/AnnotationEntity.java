@@ -23,23 +23,28 @@ public class AnnotationEntity extends BaseEntity {
     // O conteúdo desta entidade é registro clínico do paciente por inteiro. A auditoria
     // registra que houve alteração, não o que foi escrito.
     @ISensitive
-    @Column(name = "main_feeling", nullable = false)
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "main_feeling", columnDefinition = "TEXT")
     private String mainFeeling;
 
     @ISensitive
-    @Column(name = "significant_events", nullable = false)
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "significant_events", columnDefinition = "TEXT")
     private String significantEvents;
 
     @ISensitive
-    @Column(name = "current_phase", nullable = false)
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "current_phase", columnDefinition = "TEXT")
     private String currentPhase;
 
     @ISensitive
-    @Column(name = "dominant_thought", nullable = false, columnDefinition = "TEXT")
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "dominant_thought", columnDefinition = "TEXT")
     private String dominantThought;
 
     @ISensitive
-    @Column(name = "intervention", nullable = false)
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "intervention", columnDefinition = "TEXT")
     private String intervention;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)

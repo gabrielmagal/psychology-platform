@@ -2,7 +2,6 @@ package br.com.mindhaven.application.usecase.interfaces;
 
 import br.com.mindhaven.domain.entity.PaymentEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
-import br.com.mindhaven.adapter.controller.dto.MakePaymentDto;
 import core.service.model.Filter;
 
 import java.math.BigDecimal;
@@ -18,5 +17,4 @@ public interface PaymentUseCase {
     long countFiltered(String tenant, UserEntity loggedUser, Filter filter);
     List<PaymentEntity> findPaidBySessionPackage(String tenant, UserEntity loggedUser, UUID sessionPackageId);
     BigDecimal sumPaidAmountBySessionPackage(String tenant, UserEntity loggedUser, UUID sessionPackageId);
-    void makePayment(String tenant, UserEntity loggedUser, MakePaymentDto makePaymentDto);
 }

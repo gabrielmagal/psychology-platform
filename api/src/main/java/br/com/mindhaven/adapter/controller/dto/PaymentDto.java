@@ -22,6 +22,10 @@ public class PaymentDto extends BaseDto {
     @IShowInTable(value = false)
     private String paymentId;
 
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
+    private String invoiceUrl;
+
     @ILabel("Valor")
     @IShowInForm
     @IShowInTable
@@ -48,6 +52,7 @@ public class PaymentDto extends BaseDto {
 
     @ILabel("Observação")
     @IShowInForm
+    @IMultiline(rows = 2)
     private String observation;
 
     @ILabel("Recibo (arquivo)")
@@ -57,15 +62,13 @@ public class PaymentDto extends BaseDto {
     private String receipt;
 
     @ILabel("Nome do Recibo")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
     private String receiptName;
 
     @ILabel("Tipo do Recibo")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
+    @IShowInForm(value = false)
+    @IShowInTable(value = false)
     private String receiptType;
 
     @ILabel("Pacote de Sessão")

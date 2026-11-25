@@ -27,8 +27,8 @@ import java.util.UUID;
 )
 public class SessionPackageEntity extends BaseEntity {
 
-    @Column(name = "psychologist_id")
-    private UUID psychologistId;
+    @Column(name = "professional_id")
+    private UUID professionalId;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "patient_id")
@@ -51,6 +51,10 @@ public class SessionPackageEntity extends BaseEntity {
 
     @Column(name = "total_sessions")
     private Integer totalSessions;
+
+    /** Sessão avulsa: um "pacote" de uma sessão só, criado na hora do agendamento. */
+    @Column(name = "single_session")
+    private Boolean singleSession;
 
     /** Valor combinado do pacote inteiro; base do cálculo de saldo a receber. */
     @Column(name = "price")

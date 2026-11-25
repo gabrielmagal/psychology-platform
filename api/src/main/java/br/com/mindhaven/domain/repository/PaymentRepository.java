@@ -14,5 +14,4 @@ public interface PaymentRepository {
     long countFiltered(String tenant, Object filter);
     PaymentEntity findByPaymentId(String tenant, String paymentId);
     void updatePaidStatus(String tenant, String paymentId, boolean paid, java.time.LocalDate paymentDate);
-    br.com.mindhaven.domain.entity.MercadoPagoInfoEntity findMercadoPagoInfoByPsychologistId(String tenant, java.util.UUID psychologistId);
 }

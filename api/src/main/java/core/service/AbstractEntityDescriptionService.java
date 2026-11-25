@@ -154,6 +154,12 @@ public abstract class AbstractEntityDescriptionService {
                     }
                 }
 
+                if (field.isAnnotationPresent(core.notes.IGroup.class)) {
+                    prop.put("group", field.getAnnotation(core.notes.IGroup.class).value());
+                }
+                if (field.isAnnotationPresent(core.notes.IMultiline.class)) {
+                    prop.put("multiline", field.getAnnotation(core.notes.IMultiline.class).rows());
+                }
                 if (field.isAnnotationPresent(IShowInTable.class)) {
                     prop.put("showInTable", field.getAnnotation(IShowInTable.class).value());
                 }

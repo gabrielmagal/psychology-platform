@@ -90,15 +90,15 @@ public class ReminderService {
     private ReminderMessage messageFor(String tenant, SessionEntity session, LocalDateTime startsAt) {
         SessionPackageEntity pkg = session.getSessionPackage();
         UserEntity patient = pkg.getPatient();
-        UserEntity psychologist = pkg.getPsychologistId() == null ? null : em.find(UserEntity.class, pkg.getPsychologistId());
-        String psychologistName = psychologist == null
-                ? "seu psicólogo"
-                : (psychologist.getFirstName() + " " + psychologist.getLastName()).trim();
+        UserEntity professional = pkg.getProfessionalId() == null ? null : em.find(UserEntity.class, pkg.getProfessionalId());
+        String professionalName = professional == null
+                ? "seu profissional"
+                : (professional.getFirstName() + " " + professional.getLastName()).trim();
         return new ReminderMessage(
                 patient.getFirstName(),
                 patient.getEmail(),
                 patient.getPhoneNumber(),
-                psychologistName,
+                professionalName,
                 startsAt,
                 session.getModality() == SessionModality.ONLINE,
                 session.getMeetingLink(),

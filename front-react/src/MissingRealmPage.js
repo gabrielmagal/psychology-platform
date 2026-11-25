@@ -1,44 +1,41 @@
-// src/MissingRealmPage.js
 import React from "react";
-import PsychologyIcon from "@mui/icons-material/Psychology"; // ícone de cérebro do MUI
+import { brand, BrandMark } from "./theme/brand";
 
+/** Acesso sem o identificador da clínica na URL: explica como entrar. */
 const MissingRealmPage = () => {
   const baseUrl = window.location.origin;
 
   return (
     <div style={{
-      height: "100vh",
-      background: "#f7f9fc",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      fontFamily: "'Segoe UI', sans-serif",
-      color: "#333",
-      padding: "2rem",
-      textAlign: "center"
+      minHeight: "100vh",
+      display: "grid",
+      placeItems: "center",
+      padding: 24,
+      background: "var(--surface-sidebar)",
     }}>
-      <PsychologyIcon style={{ fontSize: "4rem", color: "#6c63ff", marginBottom: "1rem" }} />
-      <h1 style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>
-        Plataforma de Psicologia
-      </h1>
-      <p style={{ fontSize: "1.2rem", maxWidth: "700px", marginBottom: "1.5rem" }}>
-        Para acessar sua área personalizada, inclua o identificador da clínica na URL.
-      </p>
-      <code style={{
-        background: "#eef1f7",
-        padding: "1rem 1.5rem",
-        borderRadius: "8px",
-        fontSize: "1rem",
-        fontWeight: "bold",
-        color: "#444",
-        marginBottom: "1.5rem"
-      }}>
-        {baseUrl}/<b>sua-clinica</b>
-      </code>
-      <p style={{ fontSize: "1rem", color: "#666" }}>
-        Caso tenha dúvidas, entre em contato com a equipe de suporte.
-      </p>
+      <div className="ui-modal" style={{ maxWidth: 520, textAlign: "center", padding: 36 }}>
+        <div style={{ color: "var(--brand-600)", display: "inline-flex", marginBottom: 14 }}>
+          <BrandMark size={48} />
+        </div>
+        <h1 style={{ fontSize: "1.5rem", marginBottom: 8 }}>{brand.name}</h1>
+        <p className="ui-muted" style={{ marginBottom: 22 }}>
+          Para entrar, use o endereço da sua clínica: o identificador dela vai logo depois da barra.
+        </p>
+        <code style={{
+          display: "block",
+          padding: "12px 16px",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--ink-100)",
+          color: "var(--ink-800)",
+          fontSize: "0.95rem",
+          wordBreak: "break-all",
+        }}>
+          {baseUrl}/<strong>sua-clinica</strong>
+        </code>
+        <p className="ui-muted" style={{ marginTop: 22 }}>
+          Não sabe o endereço? Peça ao responsável pela clínica o link de acesso.
+        </p>
+      </div>
     </div>
   );
 };

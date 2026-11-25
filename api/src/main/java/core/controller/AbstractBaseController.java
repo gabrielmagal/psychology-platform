@@ -51,13 +51,21 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
         for (Map.Entry<String, List<String>> entry : uriInfo.getQueryParameters().entrySet()) {
             String key = entry.getKey();
-            if (!Set.of("page", "size").contains(key)) {
+            if (!Set.of("page", "size", "sort").contains(key)) {
                 filterParams.add(new FilterParam(key, entry.getValue().getFirst()));
             }
         }
 
         filter.setFilterParams(filterParams);
-        filter.setSortingParams(Collections.emptyList());
+        // ?sort=campo,desc — a ordem da listagem. Sem ela a ordem é pelo id (ver GenericDao).
+        String sort = uriInfo.getQueryParameters().getFirst("sort");
+        if (sort == null || sort.isBlank()) {
+            filter.setSortingParams(Collections.emptyList());
+        } else {
+            String[] parts = sort.split(",");
+            filter.setSortingParams(List.of(new core.service.model.SortingParams(
+                    parts[0].trim(), parts.length > 1 ? parts[1].trim() : "asc", 0)));
+        }
 
         List<E> entities = service.filteredFindPaged(filter, page, size);
         List<T> dtos = mapper.toDtoList(entities);
@@ -75,6 +83,7 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
 
     @POST
     public T save(@RequestBody T dto) {
+        validate(dto);
         E entity = mapper.toEntity(dto);
         E savedEntity = service.save(entity);
         if (savedEntity != null) {
@@ -89,6 +98,7 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
     public T update(@PathParam("id") UUID id, @RequestBody T dto) {
         E existingEntity = service.findById(id);
         if (existingEntity != null) {
+            validate(dto);
             dto.setId(id);
             E entityToUpdate = mapper.toEntity(dto);
             E updatedEntity = service.update(entityToUpdate);
@@ -99,6 +109,14 @@ public abstract class AbstractBaseController<T extends BaseDto, E extends BaseEn
             }
         } else {
             throw new NotFoundException();
+        }
+    }
+
+    /** Mesmas regras do formulário, conferidas no servidor antes de qualquer gravação. */
+    private void validate(T dto) {
+        List<String> problems = core.validation.DtoValidator.problems(dto);
+        if (!problems.isEmpty()) {
+            throw core.error.BusinessException.invalid(String.join(" ", problems));
         }
     }
 

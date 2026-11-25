@@ -1,176 +1,184 @@
-import { Link, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+    FiArrowRight, FiCalendar, FiCreditCard, FiDollarSign, FiPackage, FiShield, FiSun, FiUsers,
+} from "react-icons/fi";
 import styles from "./Home.module.css";
-import clinic from "./pages/clinic/Clinic.module.css";
 import { useRoles } from "./shared/UseRoles";
-import React, { useEffect, useState } from "react";
+import { EmptyState, ErrorState, Skeleton, Alert } from "./ui/Feedback";
 import { useApi, money, formatDate, STATUS_LABEL } from "./pages/clinic/clinicApi";
 
+const STATUS_TONE = { REALIZADA: "ui-badge--success", FALTA: "ui-badge--danger", CANCELADA: "", AGENDADA: "ui-badge--info" };
+
 function SessionLine({ item, isStaff, showDate }) {
+    const confirmed = item.status === "AGENDADA" && item.confirmedAt;
     return (
-        <li className={clinic.listItem}>
-            <span>
-                <strong>
-                    {showDate ? `${formatDate(item.date)} ` : ""}{item.startTime || "Sem horário"}
-                </strong>{" — "}
-                {isStaff ? item.patientName : item.psychologistName || item.title}
+        <li className="ui-list-item">
+            <span className={styles.sessionLine}>
+                <span className={styles.sessionTime}>
+                    {showDate && <small>{formatDate(item.date).slice(0, 5)}</small>}
+                    {item.startTime || "--:--"}
+                </span>
+                <span>
+                    <strong>{isStaff ? item.patientName : item.professionalName || item.title}</strong>
+                    <small>{item.modality === "ONLINE" ? "Online" : "Presencial"} · {item.durationMinutes} min</small>
+                </span>
             </span>
-            <span className={`${clinic.badge} ${clinic[`badge${item.status}`] || ""}`}>
-                {item.status === "AGENDADA" && item.confirmedAt ? "Confirmada" : STATUS_LABEL[item.status]}
+            <span className={`ui-badge ${confirmed ? "ui-badge--success" : STATUS_TONE[item.status] || ""}`}>
+                {confirmed ? "Confirmada" : STATUS_LABEL[item.status]}
             </span>
         </li>
     );
 }
 
+function Shortcut({ to, icon: Icon, title, children }) {
+    return (
+        <Link to={to} className={styles.shortcut}>
+            <span className={styles.shortcutIcon}><Icon aria-hidden="true" /></span>
+            <span className={styles.shortcutText}>
+                <strong>{title}</strong>
+                <small>{children}</small>
+            </span>
+            <FiArrowRight className={styles.shortcutArrow} aria-hidden="true" />
+        </Link>
+    );
+}
+
 export default function Home({ keycloak, realm }) {
-    const navigate = useNavigate();
-    const { isAdmin, isPsychologist, isPatient } = useRoles(keycloak);
-    const isStaff = isAdmin || isPsychologist;
+    const { isAdmin, isProfessional, isPatient } = useRoles(keycloak);
+    const isStaff = isAdmin || isProfessional;
     const request = useApi({ keycloak, realm });
     const [dashboard, setDashboard] = useState(null);
+    const [error, setError] = useState(null);
 
-    useEffect(() => {
-        let cancelled = false;
-        request(`/clinic/dashboard`)
-            .then((data) => { if (!cancelled) setDashboard(data); })
-            // O painel é um resumo: se falhar, a tela inicial continua utilizável pelos atalhos.
-            .catch((err) => console.error("Erro ao carregar o painel", err));
-        return () => { cancelled = true; };
+    const load = useCallback(() => {
+        setError(null);
+        request(`/clinic/dashboard`).then(setDashboard).catch(setError);
     }, [request]);
 
+    useEffect(() => { load(); }, [load]);
+
     const firstName = keycloak?.tokenParsed?.given_name || keycloak?.tokenParsed?.preferred_username || "";
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+    const today = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
     return (
-        <div className={styles.container}>
-            <div className={styles.welcomeMessage}>
-                <h2>Olá{firstName ? `, ${firstName}` : ""}!</h2>
-                {isAdmin && <p>Você tem acesso total à plataforma: usuários, agenda, financeiro e auditoria.</p>}
-                {isPsychologist && <p>Veja abaixo o seu dia e o que está pendente no consultório.</p>}
-                {isPatient && <p>Acompanhe suas sessões, confirme presença e registre como você está.</p>}
+        <div className="ui-page">
+            <div className="ui-page-header">
+                <div>
+                    <h1 className="ui-page-title">{greeting}{firstName ? `, ${firstName}` : ""}</h1>
+                    <p className="ui-page-subtitle">{today.charAt(0).toUpperCase() + today.slice(1)}</p>
+                </div>
+                <Link className="ui-btn ui-btn--primary" to="/agenda"><FiCalendar aria-hidden="true" /> Abrir agenda</Link>
             </div>
 
+            {error && <ErrorState error={error} onRetry={load} />}
+            {!dashboard && !error && <div className="ui-card"><Skeleton rows={5} /></div>}
+
             {dashboard && (
-                <div className={clinic.stack} style={{ marginBottom: "2rem" }}>
+                <div className="ui-stack">
                     {isStaff && (
-                        <div className={clinic.grid}>
-                            <div className={clinic.stat}>
-                                <div className={clinic.statLabel}>Sessões hoje</div>
-                                <div className={clinic.statValue}>{dashboard.today.length}</div>
+                        <div className="ui-grid">
+                            <div className="ui-stat">
+                                <div className="ui-stat-label">Sessões hoje</div>
+                                <div className="ui-stat-value">{dashboard.today.length}</div>
                             </div>
-                            <div className={clinic.stat}>
-                                <div className={clinic.statLabel}>Sem confirmação (próximos 7 dias)</div>
-                                <div className={clinic.statValue}>{dashboard.unconfirmed}</div>
+                            <div className="ui-stat">
+                                <div className="ui-stat-label">Sem confirmação nos próximos 7 dias</div>
+                                <div className="ui-stat-value">{dashboard.unconfirmed}</div>
                             </div>
-                            <div className={clinic.stat}>
-                                <div className={clinic.statLabel}>Recebido no mês</div>
-                                <div className={clinic.statValue}>{money(dashboard.receivedThisMonth)}</div>
+                            <div className="ui-stat">
+                                <div className="ui-stat-label">Recebido no mês</div>
+                                <div className="ui-stat-value">{money(dashboard.receivedThisMonth)}</div>
                             </div>
-                            <div className={clinic.stat}>
-                                <div className={clinic.statLabel}>A receber ({dashboard.debtors} pacotes)</div>
-                                <div className={clinic.statValue}>{money(dashboard.outstanding)}</div>
+                            <div className="ui-stat">
+                                <div className="ui-stat-label">A receber · {dashboard.debtors} pacote(s)</div>
+                                <div className="ui-stat-value">{money(dashboard.outstanding)}</div>
                             </div>
                         </div>
                     )}
 
-                    <div className={clinic.card}>
-                        <h3>Hoje</h3>
-                        {dashboard.today.length === 0 ? (
-                            <p className={clinic.muted}>Nenhuma sessão hoje.</p>
-                        ) : (
-                            <ul className={clinic.list}>
-                                {dashboard.today.map((item) => (
-                                    <SessionLine key={item.id} item={item} isStaff={isStaff} />
-                                ))}
-                            </ul>
-                        )}
-                        {dashboard.upcoming.length > 0 && (
-                            <>
-                                <h3 style={{ marginTop: "1.25rem" }}>Próximas sessões</h3>
-                                <ul className={clinic.list}>
+                    {isStaff && dashboard.toClose?.length > 0 && (
+                        <Alert
+                            tone="warning"
+                            title={`${dashboard.toClose.length} sessão(ões) passada(s) sem registro`}
+                            actions={<Link className="ui-btn ui-btn--sm" to="/agenda">Registrar na agenda</Link>}
+                        >
+                            Marque se foram realizadas, se houve falta ou se foram canceladas — isso alimenta o
+                            prontuário e o financeiro.
+                        </Alert>
+                    )}
+
+                    {isPatient && dashboard.pendingRatings?.length > 0 && (
+                        <Alert tone="info" title="Como foi a sua última sessão?"
+                               actions={<Link className="ui-btn ui-btn--sm" to="/agenda">Avaliar na agenda</Link>}>
+                            Você tem {dashboard.pendingRatings.length} sessão(ões) realizada(s) sem avaliação.
+                        </Alert>
+                    )}
+
+                    <div className={styles.columns}>
+                        <section className="ui-card">
+                            <h2 className="ui-card-title">Hoje</h2>
+                            {dashboard.today.length === 0 ? (
+                                <EmptyState icon={FiCalendar} title="Nenhuma sessão hoje">
+                                    {isStaff ? "Aproveite para organizar a semana na agenda." : "Sua próxima sessão aparece ao lado."}
+                                </EmptyState>
+                            ) : (
+                                <ul className="ui-list">
+                                    {dashboard.today.map((item) => <SessionLine key={item.id} item={item} isStaff={isStaff} />)}
+                                </ul>
+                            )}
+                        </section>
+
+                        <section className="ui-card">
+                            <h2 className="ui-card-title">Próximos dias</h2>
+                            {dashboard.upcoming.length === 0 ? (
+                                <EmptyState icon={FiCalendar} title="Nada agendado para os próximos 7 dias" />
+                            ) : (
+                                <ul className="ui-list">
                                     {dashboard.upcoming.map((item) => (
                                         <SessionLine key={item.id} item={item} isStaff={isStaff} showDate />
                                     ))}
                                 </ul>
-                            </>
-                        )}
-                        <div className={clinic.actions}>
-                            <Link className={clinic.btn} to="/agenda">Abrir agenda</Link>
-                        </div>
+                            )}
+                        </section>
                     </div>
-
-                    {isStaff && dashboard.toClose?.length > 0 && (
-                        <div className={clinic.card}>
-                            <h3>Sessões passadas sem registro ({dashboard.toClose.length})</h3>
-                            <p className={clinic.muted}>
-                                Marque na agenda se foram realizadas, se houve falta ou se foram canceladas.
-                            </p>
-                            <ul className={clinic.list}>
-                                {dashboard.toClose.slice(0, 5).map((item) => (
-                                    <SessionLine key={item.id} item={item} isStaff showDate />
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {isPatient && dashboard.pendingRatings?.length > 0 && (
-                        <div className={clinic.card}>
-                            <h3>Conte como foi</h3>
-                            <p className={clinic.muted}>
-                                Você tem {dashboard.pendingRatings.length} sessão(ões) realizada(s) sem avaliação.
-                                Abra a sessão na agenda para avaliar.
-                            </p>
-                        </div>
-                    )}
                 </div>
             )}
 
-            <div className={styles.cardGrid}>
-                <div className={styles.card} onClick={() => navigate("/agenda")}>
-                    <h2>🗓️ Agenda</h2>
-                    {isStaff
-                        ? <p>Agende sessões, registre presença e envie lembretes.</p>
-                        : <p>Veja suas sessões, confirme presença e entre no atendimento online.</p>}
-                </div>
+            <h2 className={styles.sectionTitle}>Atalhos</h2>
+            <div className={styles.shortcuts}>
+                <Shortcut to="/agenda" icon={FiCalendar} title="Agenda">
+                    {isStaff ? "Agendar, registrar presença e enviar lembretes" : "Ver sessões, confirmar presença e entrar no atendimento"}
+                </Shortcut>
                 {isStaff && (
-                    <div className={styles.card} onClick={() => navigate("/usuarios")}>
-                        <h2>👥 Pacientes e usuários</h2>
-                        <p>Cadastro, prontuário e contrato de cada paciente.</p>
-                    </div>
+                    <Shortcut to="/usuarios" icon={FiUsers} title="Pacientes e usuários">
+                        Cadastro, prontuário e contrato
+                    </Shortcut>
+                )}
+                <Shortcut to="/sessions-package" icon={FiPackage} title={isPatient ? "Meus pacotes" : "Pacotes de sessões"}>
+                    {isPatient ? "O que foi contratado, o que foi pago e pagamento online" : "Sessões, anotações e pagamentos por paciente"}
+                </Shortcut>
+                {isStaff && (
+                    <Shortcut to="/financeiro" icon={FiDollarSign} title="Resumo financeiro">
+                        Recebido no mês e saldo em aberto
+                    </Shortcut>
                 )}
                 {isStaff && (
-                    <div className={styles.card} onClick={() => navigate("/sessions-package")}>
-                        <h2>🧠 Pacotes de Sessões</h2>
-                        <p>Pacotes contratados, sessões, anotações e pagamentos.</p>
-                    </div>
-                )}
-                {isStaff && (
-                    <div className={styles.card} onClick={() => navigate("/financeiro")}>
-                        <h2>💰 Financeiro</h2>
-                        <p>Recebido no mês, saldo a receber e pacotes em aberto.</p>
-                    </div>
+                    <Shortcut to="/recebimento-online" icon={FiCreditCard} title="Recebimento online">
+                        Conectar a conta do Asaas
+                    </Shortcut>
                 )}
                 {isPatient && (
-                    <div className={styles.card} onClick={() => navigate("/sessions-package")}>
-                        <h2>🧠 Meus pacotes</h2>
-                        <p>Veja seus pacotes, o que já foi pago e pague online.</p>
-                    </div>
-                )}
-                {isPatient && (
-                    <div className={styles.card} onClick={() => navigate("/diario")}>
-                        <h2>🌤️ Diário de humor</h2>
-                        <p>Registre como você está entre uma sessão e outra.</p>
-                    </div>
-                )}
-                {isStaff && (
-                    <div className={styles.card} onClick={() => navigate("/mercado-pago-info")}>
-                        <h2>💳 Mercado Pago</h2>
-                        <p>Conecte sua conta para receber pagamentos online dos pacientes.</p>
-                    </div>
+                    <Shortcut to="/diario" icon={FiSun} title="Diário de humor">
+                        Registrar como você está entre as sessões
+                    </Shortcut>
                 )}
                 {isAdmin && (
-                    <div className={styles.card} onClick={() => navigate("/audit-log")}>
-                        <h2>🔎 Auditoria</h2>
-                        <p>Histórico de quem criou, alterou ou removeu cada registro.</p>
-                    </div>
+                    <Shortcut to="/audit-log" icon={FiShield} title="Auditoria">
+                        Quem alterou o quê, e quando
+                    </Shortcut>
                 )}
             </div>
         </div>

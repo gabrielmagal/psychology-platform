@@ -66,12 +66,12 @@ class SessionOwnershipTest {
     void seed() {
         if (sessao != null) return;
 
-        psicologoDono = dao.update(TENANT, newUser("80000000001", "Dono", UserType.PSICOLOGO));
-        psicologoIntruso = dao.update(TENANT, newUser("80000000002", "Intruso", UserType.PSICOLOGO));
+        psicologoDono = dao.update(TENANT, newUser("80000000001", "Dono", UserType.PROFISSIONAL));
+        psicologoIntruso = dao.update(TENANT, newUser("80000000002", "Intruso", UserType.PROFISSIONAL));
         paciente = dao.update(TENANT, newUser("80000000003", "Paciente", UserType.PACIENTE));
 
         SessionPackageEntity pacote = new SessionPackageEntity();
-        pacote.setPsychologistId(psicologoDono.getId());
+        pacote.setProfessionalId(psicologoDono.getId());
         pacote.setPatient(paciente);
         pacote.setPackageTitle("Pacote mensal");
         pacote.setTotalSessions(4);
@@ -88,8 +88,8 @@ class SessionOwnershipTest {
     }
 
     @Test
-    @DisplayName("outro psicólogo não lê, não altera e não apaga a sessão")
-    void otherPsychologistIsBlocked() {
+    @DisplayName("outro profissional não lê, não altera e não apaga a sessão")
+    void otherProfessionalIsBlocked() {
         UUID id = sessao.getId();
 
         assertThrows(SecurityException.class,
@@ -139,7 +139,7 @@ class SessionOwnershipTest {
     }
 
     @Test
-    @DisplayName("anotações: visibilidade aplicada no banco para psicólogo e paciente")
+    @DisplayName("anotações: visibilidade aplicada no banco para profissional e paciente")
     void annotationVisibilityInDatabase() {
         AnnotationEntity anotacao = AnnotationEntity.builder()
                 .mainFeeling("ansiedade")

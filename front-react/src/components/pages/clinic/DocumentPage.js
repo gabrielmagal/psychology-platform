@@ -1,149 +1,85 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import dayjs from "dayjs";
+import { FiDownload, FiPrinter } from "react-icons/fi";
 import styles from "./Clinic.module.css";
-import { useApi, errorMessage, money, formatDate, formatCpf, PAYMENT_METHOD_LABEL } from "./clinicApi";
+import { ErrorState, PageHeader, Skeleton } from "../../ui/Feedback";
+import { saveBlob } from "../../../utils/fetchWithAuth";
+import { useApi, useDownload } from "./clinicApi";
+
+const KINDS = {
+    recibo: { type: "RECIBO", title: "Recibo" },
+    comparecimento: { type: "DECLARACAO", title: "Declaração de comparecimento" },
+    contrato: { type: "CONTRATO", title: "Contrato terapêutico" },
+    emitido: { type: null, title: "Documento emitido" },
+};
 
 /**
- * Documentos para impressão (ou "Salvar como PDF" do navegador): recibo de pagamento,
- * declaração de comparecimento e contrato terapêutico.
+ * Documento em PDF. Recibo, declaração e contrato são emitidos pelo servidor, recebem número
+ * e ficam guardados; aqui o PDF é exibido e pode ser baixado ou impresso.
+ * `/documento/emitido/:id` abre um documento que já existe.
  */
-export default function DocumentPage({ keycloak, realm, onUnauthorized, onForbidden }) {
+export default function DocumentPage(props) {
     const { kind, id } = useParams();
     const navigate = useNavigate();
-    const request = useApi({ keycloak, realm, onUnauthorized, onForbidden });
-    const [data, setData] = useState(null);
+    const request = useApi(props);
+    const download = useDownload(props);
+    const [info, setInfo] = useState(null);
+    const [file, setFile] = useState(null);
     const [error, setError] = useState(null);
+    const config = KINDS[kind];
 
     useEffect(() => {
+        if (!config) {
+            setError("Documento desconhecido.");
+            return undefined;
+        }
         let cancelled = false;
-        const load = async () => {
-            if (kind === "recibo") return request(`/clinic/document/receipt/${id}`);
-            if (kind === "comparecimento") return request(`/clinic/document/attendance/${id}`);
-            if (kind === "contrato") {
-                const [record, me] = await Promise.all([
-                    request(`/clinic/patient-record/${id}`),
-                    request(`/user/keycloak`),
-                ]);
-                return {
-                    patient: record.patient,
-                    psychologist: {
-                        name: [me.firstName, me.lastName].filter(Boolean).join(" "),
-                        cpf: me.cpf,
-                        crp: me.crp,
-                        address: me.address,
-                        phoneNumber: me.phoneNumber,
-                    },
-                };
+        let objectUrl = null;
+        (async () => {
+            try {
+                const issued = config.type
+                    ? await request(`/clinic/documents`, { method: "POST", body: { type: config.type, referenceId: id } })
+                    : { id };
+                const { blob, fileName } = await download(`/clinic/documents/${issued.id}/pdf`);
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setInfo(issued);
+                setFile({ url: objectUrl, blob, fileName: fileName || "documento.pdf" });
+            } catch (err) {
+                if (!cancelled) setError(err);
             }
-            throw new Error("Documento desconhecido.");
+        })();
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
-        load()
-            .then((result) => { if (!cancelled) setData(result); })
-            .catch((err) => { if (!cancelled) setError(errorMessage(err)); });
-        return () => { cancelled = true; };
-    }, [kind, id, request]);
-
-    if (error) return <div className={styles.page}><div className={styles.error}>{error}</div></div>;
-    if (!data) return <div className={styles.page}><p className={styles.muted}>Carregando documento…</p></div>;
-
-    const patient = data.patient || {};
-    const psychologist = data.psychologist || {};
-    const today = dayjs().format("DD [de] MMMM [de] YYYY");
-    const crp = psychologist.crp ? `CRP ${psychologist.crp}` : "CRP não informado";
+    }, [config, id, request, download]);
 
     return (
         <div className={styles.page}>
-            <div className={`${styles.toolbar} ${styles.noPrint}`} style={{ maxWidth: 800, margin: "0 auto 1rem" }}>
-                <button className={styles.btn} onClick={() => window.print()}>Imprimir / salvar PDF</button>
-                <button className={styles.btnGhost} onClick={() => navigate(-1)}>Voltar</button>
-                {!psychologist.crp && (
-                    <span className={styles.muted}>
-                        O CRP do psicólogo não está cadastrado — preencha em Usuários para sair no documento.
-                    </span>
-                )}
-            </div>
-
-            <div className={styles.sheet}>
-                {kind === "recibo" && (
+            <PageHeader
+                title={config?.title || "Documento"}
+                subtitle={info?.number ? `Nº ${info.number} — guardado no sistema como foi emitido.` : undefined}
+            >
+                {file && (
                     <>
-                        <h1>RECIBO Nº {data.number}</h1>
-                        <p>
-                            Recebi de <strong>{patient.name}</strong>, CPF {formatCpf(patient.cpf)}, a quantia de{" "}
-                            <strong>{money(data.amount)}</strong>, paga em {formatDate(data.paymentDate)} por{" "}
-                            {PAYMENT_METHOD_LABEL[data.paymentMethod] || "outro meio"}, referente a serviços de
-                            psicologia{data.packageTitle ? ` (${data.packageTitle})` : ""}.
-                        </p>
-                        <p>Por ser verdade, firmo o presente recibo.</p>
+                        <button className="ui-btn ui-btn--primary" onClick={() => saveBlob(file.blob, file.fileName)}>
+                            <FiDownload aria-hidden="true" /> Baixar PDF
+                        </button>
+                        <button className="ui-btn" onClick={() => window.open(file.url, "_blank", "noopener")}>
+                            <FiPrinter aria-hidden="true" /> Abrir para imprimir
+                        </button>
                     </>
                 )}
+                <button className="ui-btn" onClick={() => navigate(-1)}>Voltar</button>
+            </PageHeader>
 
-                {kind === "comparecimento" && (
-                    <>
-                        <h1>DECLARAÇÃO DE COMPARECIMENTO</h1>
-                        <p>
-                            Declaro, para os devidos fins, que <strong>{patient.name}</strong>, CPF{" "}
-                            {formatCpf(patient.cpf)}, compareceu a atendimento psicológico no dia{" "}
-                            <strong>{formatDate(data.date)}</strong>
-                            {data.startTime ? `, às ${data.startTime}, com duração de ${data.durationMinutes} minutos` : ""}.
-                        </p>
-                    </>
-                )}
-
-                {kind === "contrato" && (
-                    <>
-                        <h1>CONTRATO DE PRESTAÇÃO DE SERVIÇOS PSICOLÓGICOS</h1>
-                        <p>
-                            <strong>Contratante:</strong> {patient.name}, CPF {formatCpf(patient.cpf)}
-                            {patient.guardianName ? `, representado(a) por ${patient.guardianName}` : ""}.<br />
-                            <strong>Contratado(a):</strong> {psychologist.name}, {crp}, CPF {formatCpf(psychologist.cpf)}.
-                        </p>
-                        <p>
-                            <strong>1. Objeto.</strong> Prestação de atendimento psicológico em sessões com duração e
-                            periodicidade combinadas entre as partes, na modalidade presencial ou online.
-                        </p>
-                        <p>
-                            <strong>2. Sigilo.</strong> O atendimento é protegido pelo sigilo profissional, nos termos do
-                            Código de Ética Profissional do Psicólogo. As informações só serão compartilhadas nas hipóteses
-                            previstas em lei ou com autorização do contratante.
-                        </p>
-                        <p>
-                            <strong>3. Faltas e remarcações.</strong> Remarcações devem ser pedidas com antecedência mínima
-                            de 24 horas. A sessão não desmarcada nesse prazo é considerada realizada para fins de cobrança.
-                        </p>
-                        <p>
-                            <strong>4. Honorários.</strong> Os valores e a forma de pagamento são os registrados no pacote
-                            de sessões contratado, com emissão de recibo a cada pagamento.
-                        </p>
-                        <p>
-                            <strong>5. Dados pessoais.</strong> Os dados e o prontuário são tratados conforme a Lei Geral de
-                            Proteção de Dados (Lei 13.709/2018) e guardados pelo prazo exigido pelo Conselho Federal de
-                            Psicologia.
-                        </p>
-                        <p>
-                            <strong>6. Encerramento.</strong> Qualquer das partes pode encerrar o atendimento a qualquer
-                            momento, recomendando-se uma sessão de fechamento.
-                        </p>
-                    </>
-                )}
-
-                <p style={{ marginTop: "2.5rem" }}>{today}.</p>
-
-                <div className={styles.signature}>
-                    <div className={styles.signatureLine} />
-                    <div><strong>{psychologist.name}</strong></div>
-                    <div>Psicólogo(a) — {crp}</div>
-                    {kind === "recibo" && psychologist.cpf && <div>CPF {formatCpf(psychologist.cpf)}</div>}
-                </div>
-
-                {kind === "contrato" && (
-                    <div className={styles.signature}>
-                        <div className={styles.signatureLine} />
-                        <div><strong>{patient.guardianName || patient.name}</strong></div>
-                        <div>Contratante</div>
-                    </div>
-                )}
-            </div>
+            {error && <ErrorState error={error} />}
+            {!error && !file && <div className="ui-card"><Skeleton rows={8} /></div>}
+            {file && (
+                <iframe title={config.title} src={file.url}
+                        style={{ width: "100%", height: "78vh", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "#fff" }} />
+            )}
         </div>
     );
 }

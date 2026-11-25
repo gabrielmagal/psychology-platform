@@ -1,5 +1,6 @@
 package br.com.mindhaven.application;
 
+import core.error.BusinessException;
 import br.com.mindhaven.application.reminder.ReminderMessage;
 import br.com.mindhaven.application.reminder.ReminderService;
 import br.com.mindhaven.application.service.ClinicService;
@@ -75,17 +76,17 @@ class ReminderAndPatientAccessTest {
                 .build());
     }
 
-    private SessionPackageEntity newPackage(String tenant, UserEntity psychologist, UserEntity patient) {
+    private SessionPackageEntity newPackage(String tenant, UserEntity professional, UserEntity patient) {
         SessionPackageEntity pkg = new SessionPackageEntity();
-        pkg.setPsychologistId(psychologist.getId());
+        pkg.setProfessionalId(professional.getId());
         pkg.setPatient(patient);
         pkg.setPackageTitle("Pacote mensal");
         pkg.setPrice(new BigDecimal("400.00"));
         return dao.update(tenant, pkg);
     }
 
-    private UUID scheduleAt(String tenant, UserEntity psychologist, SessionPackageEntity pkg, LocalDateTime when) {
-        return clinic.schedule(tenant, psychologist, pkg.getId(), when.toLocalDate(),
+    private UUID scheduleAt(String tenant, UserEntity professional, SessionPackageEntity pkg, LocalDateTime when) {
+        return clinic.schedule(tenant, professional, pkg.getId(), when.toLocalDate(),
                 when.toLocalTime().withSecond(0).withNano(0), 50, SessionModality.ONLINE,
                 "https://meet.exemplo/sala", "Sessão", 1).getFirst();
     }
@@ -94,16 +95,16 @@ class ReminderAndPatientAccessTest {
     @DisplayName("lembrete: só a sessão dentro da janela, uma única vez, sem dado clínico")
     void emailReminder() {
         String tenant = "clinica_lembrete";
-        UserEntity psychologist = newUser(tenant, "60000000001", "Dona", UserType.PSICOLOGO);
+        UserEntity professional = newUser(tenant, "60000000001", "Dona", UserType.PROFISSIONAL);
         UserEntity patient = newUser(tenant, "60000000002", "Paciente", UserType.PACIENTE);
-        SessionPackageEntity pkg = newPackage(tenant, psychologist, patient);
+        SessionPackageEntity pkg = newPackage(tenant, professional, patient);
 
         // "Agora" fixo ao meio-dia: a janela de 24h não depende da hora em que o teste roda.
         LocalDateTime now = LocalDate.now().plusDays(10).atTime(12, 0);
-        UUID soon = scheduleAt(tenant, psychologist, pkg, now.plusHours(3));
-        scheduleAt(tenant, psychologist, pkg, now.plusHours(30));            // fora da janela
-        UUID cancelled = scheduleAt(tenant, psychologist, pkg, now.plusHours(5));
-        clinic.changeStatus(tenant, psychologist, cancelled, SessionStatus.CANCELADA);
+        UUID soon = scheduleAt(tenant, professional, pkg, now.plusHours(3));
+        scheduleAt(tenant, professional, pkg, now.plusHours(30));            // fora da janela
+        UUID cancelled = scheduleAt(tenant, professional, pkg, now.plusHours(5));
+        clinic.changeStatus(tenant, professional, cancelled, SessionStatus.CANCELADA);
 
         assertEquals(1, reminders.sendDueReminders(tenant, now));
 
@@ -120,7 +121,7 @@ class ReminderAndPatientAccessTest {
         assertEquals(0, reminders.sendDueReminders(tenant, now));
         assertEquals(1, mailbox.getTotalMessagesSent());
 
-        var agendaItem = clinic.agenda(tenant, psychologist, now.toLocalDate(), now.toLocalDate()).stream()
+        var agendaItem = clinic.agenda(tenant, professional, now.toLocalDate(), now.toLocalDate()).stream()
                 .filter(i -> soon.equals(i.get("id"))).findFirst().orElseThrow();
         assertNotNull(agendaItem.get("remindedAt"));
 
@@ -132,11 +133,11 @@ class ReminderAndPatientAccessTest {
     @DisplayName("paciente vê e consulta só os próprios pacotes; não cria nem altera")
     void patientSeesOnlyOwnPackages() {
         String tenant = "clinica_pacote_paciente";
-        UserEntity psychologist = newUser(tenant, "60000000011", "Dona", UserType.PSICOLOGO);
+        UserEntity professional = newUser(tenant, "60000000011", "Dona", UserType.PROFISSIONAL);
         UserEntity patient = newUser(tenant, "60000000012", "Paciente", UserType.PACIENTE);
         UserEntity other = newUser(tenant, "60000000013", "Outro", UserType.PACIENTE);
-        SessionPackageEntity mine = newPackage(tenant, psychologist, patient);
-        SessionPackageEntity theirs = newPackage(tenant, psychologist, other);
+        SessionPackageEntity mine = newPackage(tenant, professional, patient);
+        SessionPackageEntity theirs = newPackage(tenant, professional, other);
 
         Filter filter = new Filter();
         filter.setFilterParams(new ArrayList<>());
@@ -159,6 +160,63 @@ class ReminderAndPatientAccessTest {
                 .compareTo(payments.sumPaidAmountBySessionPackage(tenant, patient, mine.getId())));
         // Pedir os pagamentos do pacote de outro paciente não devolve nada.
         assertTrue(payments.findPaidBySessionPackage(tenant, patient, theirs.getId()).isEmpty());
+    }
+
+    @Inject
+    br.com.mindhaven.application.usecase.interfaces.SessionUseCase sessions;
+
+    @Test
+    @DisplayName("editar pacote ou sessão não apaga sessões, pagamentos nem anotações")
+    void editingKeepsChildren() {
+        String tenant = "clinica_edicao";
+        UserEntity professional = newUser(tenant, "60000000021", "Dona", UserType.PROFISSIONAL);
+        UserEntity patient = newUser(tenant, "60000000022", "Paciente", UserType.PACIENTE);
+        SessionPackageEntity pkg = newPackage(tenant, professional, patient);
+        LocalDateTime when = LocalDate.of(2027, 6, 7).atTime(10, 0);
+        UUID sessionId = scheduleAt(tenant, professional, pkg, when);
+        scheduleAt(tenant, professional, pkg, when.plusDays(7));
+        payment(tenant, pkg, "100.00");
+
+        // O que chega do formulário: só os campos do pacote, com as listas vazias.
+        SessionPackageEntity fromForm = new SessionPackageEntity();
+        fromForm.setId(pkg.getId());
+        fromForm.setPackageTitle("Pacote renomeado");
+        fromForm.setTotalSessions(8);
+        fromForm.setPrice(new BigDecimal("500.00"));
+        packages.update(tenant, professional, fromForm);
+
+        SessionPackageEntity reloaded = packages.findById(tenant, professional, pkg.getId());
+        assertEquals("Pacote renomeado", reloaded.getPackageTitle());
+        assertEquals(patient.getId(), reloaded.getPatient().getId(), "o paciente do pacote não muda na edição");
+        assertEquals(2, clinic.timeline(tenant, professional, patient.getId()).size(), "as sessões continuam lá");
+        assertEquals(0, new BigDecimal("100.00")
+                .compareTo(payments.sumPaidAmountBySessionPackage(tenant, professional, pkg.getId())));
+
+        br.com.mindhaven.domain.entity.AnnotationEntity note = new br.com.mindhaven.domain.entity.AnnotationEntity();
+        note.setMainFeeling("Alívio");
+        note.setSignificantEvents("Semana de provas");
+        note.setCurrentPhase("Inicial");
+        note.setDominantThought("Vou conseguir");
+        note.setIntervention("Psicoeducação");
+        note.setSession(sessions.findById(tenant, professional, sessionId));
+        dao.update(tenant, note);
+
+        br.com.mindhaven.domain.entity.SessionEntity sessionForm = new br.com.mindhaven.domain.entity.SessionEntity();
+        sessionForm.setId(sessionId);
+        sessionForm.setTitle("Sessão editada");
+        sessionForm.setDateSession(when.toLocalDate());
+        sessionForm.setStartTime(when.toLocalTime());
+        sessionForm.setSummary("Resumo");
+        sessions.update(tenant, professional, sessionForm);
+
+        var edited = clinic.timeline(tenant, professional, patient.getId()).stream()
+                .filter(i -> sessionId.equals(i.get("id"))).findFirst().orElseThrow();
+        assertEquals("Sessão editada", edited.get("title"));
+        assertEquals(1, ((List<?>) edited.get("annotations")).size(), "a anotação clínica continua lá");
+
+        // Mover a sessão para cima de outra continua bloqueado na edição.
+        sessionForm.setDateSession(when.plusDays(7).toLocalDate());
+        assertThrows(BusinessException.class, () -> sessions.update(tenant, professional, sessionForm));
     }
 
     private void payment(String tenant, SessionPackageEntity pkg, String amount) {

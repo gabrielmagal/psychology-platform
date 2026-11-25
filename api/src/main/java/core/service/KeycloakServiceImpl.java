@@ -161,6 +161,12 @@ public class KeycloakServiceImpl implements KeycloakService {
                 .build();
 
         HttpResponse<String> response = send(request, "criar usuário no Keycloak");
+        if (response.statusCode() == 409) {
+            // O login é o CPF: o Keycloak recusa CPF ou e-mail que já têm conta. Sem isto o
+            // usuário via só um "erro interno".
+            throw core.error.BusinessException.conflict(
+                    "Já existe um usuário com este CPF ou e-mail. Confira se a pessoa já não está cadastrada.");
+        }
         if (response.statusCode() != 201) {
             throw new RuntimeException("Falha ao criar usuário: " + response.body());
         }

@@ -25,8 +25,8 @@ class UserRepositoryPermissionTest {
 
     private static final String TENANT = "clinica_permissao";
 
-    private static final String PSICOLOGO_KC = "kc-psicologo";
-    private static final String OUTRO_PSICOLOGO_KC = "kc-outro-psicologo";
+    private static final String PROFISSIONAL_KC = "kc-psicologo";
+    private static final String OUTRO_PROFISSIONAL_KC = "kc-outro-psicologo";
 
     @Inject
     UserRepositoryImpl repository;
@@ -53,21 +53,21 @@ class UserRepositoryPermissionTest {
         if (psicologo != null) return;
 
         psicologo = repository.save(TENANT,
-                build("90000000001", "Psicologo", UserType.PSICOLOGO, PSICOLOGO_KC, null));
+                build("90000000001", "Psicologo", UserType.PROFISSIONAL, PROFISSIONAL_KC, null));
 
         repository.save(TENANT,
-                build("90000000002", "OutroPsicologo", UserType.PSICOLOGO, OUTRO_PSICOLOGO_KC, null));
+                build("90000000002", "OutroPsicologo", UserType.PROFISSIONAL, OUTRO_PROFISSIONAL_KC, null));
 
-        // 12 pacientes deste psicólogo...
+        // 12 pacientes deste profissional...
         for (int i = 0; i < 12; i++) {
             repository.save(TENANT, build(String.format("91%09d", i), "Paciente" + i,
-                    UserType.PACIENTE, "kc-paciente-" + i, PSICOLOGO_KC));
+                    UserType.PACIENTE, "kc-paciente-" + i, PROFISSIONAL_KC));
         }
 
         // ...e 6 de outro, que ele não pode enxergar.
         for (int i = 0; i < 6; i++) {
             repository.save(TENANT, build(String.format("92%09d", i), "Alheio" + i,
-                    UserType.PACIENTE, "kc-alheio-" + i, OUTRO_PSICOLOGO_KC));
+                    UserType.PACIENTE, "kc-alheio-" + i, OUTRO_PROFISSIONAL_KC));
         }
     }
 
@@ -78,8 +78,8 @@ class UserRepositoryPermissionTest {
     }
 
     @Test
-    @DisplayName("psicólogo recebe páginas cheias, só com usuários visíveis para ele")
-    void psychologistGetsFullPages() {
+    @DisplayName("profissional recebe páginas cheias, só com usuários visíveis para ele")
+    void professionalGetsFullPages() {
         // Antes: a página vinha do banco sem restrição e era filtrada em memória depois,
         // então uma página de 5 podia chegar com 1 ou 2 registros — e os descartados não
         // apareciam em página nenhuma.
@@ -144,7 +144,7 @@ class UserRepositoryPermissionTest {
     }
 
     private boolean visivelParaPsicologo(UserEntity user) {
-        return PSICOLOGO_KC.equals(user.getKeycloakId())
-                || PSICOLOGO_KC.equals(user.getRegisteredByKeycloakId());
+        return PROFISSIONAL_KC.equals(user.getKeycloakId())
+                || PROFISSIONAL_KC.equals(user.getRegisteredByKeycloakId());
     }
 }

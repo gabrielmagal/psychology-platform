@@ -52,6 +52,11 @@ public class TenantSchemaServiceImpl implements TenantSchemaService {
                     .dataSource(dataSource)
                     .schemas(schema)
                     .locations("classpath:db/migration/default")
+                    // Bases migradas por uma versão anterior do projeto têm no histórico
+                    // scripts que já não existem aqui (ex.: V3, V4). Sem isto o Flyway
+                    // recusa a base inteira e o tenant não sobe; os scripts novos
+                    // continuam sendo aplicados normalmente.
+                    .ignoreMigrationPatterns("*:missing", "*:future")
                     .load();
 
             flyway.migrate();

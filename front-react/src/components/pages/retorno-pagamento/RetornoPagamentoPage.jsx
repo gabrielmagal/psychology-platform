@@ -1,41 +1,61 @@
 import React, { useEffect, useState } from "react";
-import { apiFetch, extractCleanErrorMessage } from "../../../utils/fetchWithAuth";
+import { Link } from "react-router-dom";
+import { FiCheckCircle } from "react-icons/fi";
+import { Alert, ErrorState, PageHeader, Skeleton } from "../../ui/Feedback";
+import { useApi, money } from "../clinic/clinicApi";
 
-export default function RetornoPagamentoPage({ keycloak, realm }) {
-  const [status, setStatus] = useState(null);
-  const [mensagem, setMensagem] = useState("");
+/**
+ * Para onde o Asaas devolve o paciente depois de pagar. Consulta o provedor — a página
+ * nunca acredita nos parâmetros da URL para dar um pagamento como feito.
+ */
+export default function RetornoPagamentoPage({ keycloak, realm, onUnauthorized, onForbidden }) {
+  const request = useApi({ keycloak, realm, onUnauthorized, onForbidden });
+  const packageId = new URLSearchParams(window.location.search).get("pacote");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(packageId ? null : "Não foi possível identificar o pacote deste pagamento.");
+
+  const check = async () => {
+    setError(null);
+    setResult(null);
+    try {
+      setResult(await request(`/online-payment/sync/${packageId}`, { method: "POST" }));
+    } catch (err) {
+      setError(err);
+    }
+  };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const dados = {
-        collectionId: params.get("collection_id"),
-        paymentId: params.get("payment_id"),
-        preferenceId: params.get("preference_id"),
-        status: params.get("status"),
-        paymentType: params.get("payment_type"),
-        merchantOrderId: params.get("merchant_order_id"),
-    };
-
-    setStatus(dados.status);
-
-    const enviarParaBackend = async () => {
-      try {
-        await apiFetch(`/payment/confirm`, { keycloak, realm, method: "POST", body: dados });
-        setMensagem("Pagamento confirmado com sucesso!");
-      } catch (err) {
-        console.error(err);
-        setMensagem(err?.message || extractCleanErrorMessage(err) || "Falha ao confirmar pagamento.");
-      }
-    };
-
-    enviarParaBackend();
+    if (packageId) check();
     // eslint-disable-next-line
-  }, [keycloak]);
+  }, [packageId]);
+
+  const settled = result && Number(result.balance) === 0;
 
   return (
-    <div style={{ textAlign: "center", marginTop: "3rem" }}>
-      <h1>Pagamento {status}</h1>
-      <p>{mensagem}</p>
+    <div className="ui-page" style={{ maxWidth: 640 }}>
+      <PageHeader title="Pagamento" />
+      {error && <ErrorState error={error} onRetry={packageId ? check : undefined} />}
+      {!error && !result && <div className="ui-card"><Skeleton rows={3} /></div>}
+
+      {result && settled && (
+        <Alert tone="success" title="Pagamento confirmado" icon={FiCheckCircle}>
+          Recebemos {money(result.paid)} e o pacote está quitado. Obrigado!
+        </Alert>
+      )}
+      {result && !settled && (
+        <Alert
+          tone="info"
+          title="Pagamento ainda não confirmado"
+          actions={<button className="ui-btn ui-btn--sm" onClick={check}>Verificar de novo</button>}
+        >
+          O Asaas ainda não registrou o pagamento. Pix costuma confirmar em instantes; boleto pode levar até
+          3 dias úteis. Falta pagar {money(result.balance)}.
+        </Alert>
+      )}
+
+      <div className="ui-toolbar" style={{ marginTop: 20 }}>
+        <Link className="ui-btn" to="/sessions-package">Voltar aos pacotes</Link>
+      </div>
     </div>
   );
 }

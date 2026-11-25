@@ -72,13 +72,13 @@ public class AnnotationRepositoryImpl implements AnnotationRepository {
         return dao.countFiltered(tenant, (Filter) filter, AnnotationEntity.class, visibilityOf(loggedUser));
     }
 
-    /** Anotação é visível para o psicólogo dono do pacote e para o paciente do pacote. */
+    /** Anotação é visível para o profissional dono do pacote e para o paciente do pacote. */
     private IGenericDao.PredicateProvider<AnnotationEntity> visibilityOf(UserEntity loggedUser) {
         UUID userId = loggedUser.getId();
 
         return (cb, root, query) -> switch (loggedUser.getUserType()) {
-            case PSICOLOGO -> List.of(cb.equal(
-                    root.get("session").get("sessionPackage").get("psychologistId"), userId));
+            case PROFISSIONAL -> List.of(cb.equal(
+                    root.get("session").get("sessionPackage").get("professionalId"), userId));
             case PACIENTE -> List.of(cb.equal(
                     root.get("session").get("sessionPackage").get("patient").get("id"), userId));
             default -> List.<Predicate>of(cb.disjunction());

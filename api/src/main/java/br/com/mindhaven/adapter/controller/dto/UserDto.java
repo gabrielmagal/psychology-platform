@@ -22,88 +22,95 @@ public class UserDto extends BaseDto {
     private String keycloakId;
     private String registeredByKeycloakId;
 
-    @ILabel("Cpf")
+    @ILabel("CPF")
     @IShowInForm
     @IShowInTable
     @NotNull
+    @IGroup("Dados pessoais")
     private String cpf;
 
     @ILabel("Nome")
     @IShowInForm
     @IShowInTable
     @NotNull
+    @IGroup("Dados pessoais")
     private String firstName;
 
     @ILabel("Sobrenome")
     @IShowInForm
     @IShowInTable
     @NotNull
+    @IGroup("Dados pessoais")
     private String lastName;
 
-    @ILabel("Email")
+    @ILabel("E-mail")
     @IShowInForm
     @IShowInTable
     @NotNull
     @Email
+    @IGroup("Contato")
     private String email;
 
     @ILabel("Telefone")
     @IShowInForm
     @IShowInTable
     @NotNull
+    @IGroup("Contato")
     private String phoneNumber;
 
     @ILabel("Data de Nascimento")
     @IShowInForm
-    @IShowInTable
+    @IShowInTable(value = false)
     @NotNull
+    @IGroup("Dados pessoais")
     private LocalDate birthDate;
 
-    @ILabel("CRP (psicólogo)")
+    @ILabel("Registro profissional (CRP)")
     @IShowInForm
+    @IGroup("Acesso")
     private String crp;
 
     @ILabel("Endereço")
     @IShowInForm
+    @IGroup("Contato")
     private String address;
 
     @ILabel("Profissão")
     @IShowInForm
+    @IGroup("Dados pessoais")
     private String occupation;
 
     @ILabel("Contato de emergência")
     @IShowInForm
+    @IGroup("Contato de emergência")
     private String emergencyContactName;
 
     @ILabel("Telefone de emergência")
     @IShowInForm
+    @IGroup("Contato de emergência")
     private String emergencyContactPhone;
 
-    @ILabel("Responsável legal (menor de idade)")
+    @ILabel("Nome do responsável")
     @IShowInForm
+    @IGroup("Responsável legal (menor de idade)")
     private String guardianName;
 
     @ILabel("Telefone do responsável")
     @IShowInForm
+    @IGroup("Responsável legal (menor de idade)")
     private String guardianPhone;
 
     @ILabel("Imagem")
     @IShowInForm
     @IShowInTable(value = false)
     @IPhoto
+    @IGroup("Dados pessoais")
     private String profileImage;
 
-    @ILabel("Tipo de Usuário")
+    @ILabel("Perfil")
     @IShowInForm
     @IShowInTable
     @NotNull
+    @IGroup("Acesso")
     private UserType userType;
-
-    @ILabel("Mercado Pago Infos")
-    @OneToOne
-    @IShowInForm
-    @IShowInTable
-    @IShowField("packageTitle")
-    @IRelatedType("mercado-pago-info")
-    private MercadoPagoInfoDto mercadoPagoInfo;
 }

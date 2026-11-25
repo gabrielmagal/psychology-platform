@@ -25,7 +25,9 @@ import java.util.UUID;
 @EntityListeners(AuditListener.class)
 public class PaymentEntity extends BaseEntity {
 
-    @Column(name = "payment_id", nullable = false)
+    // Identificador do checkout do Mercado Pago. Pagamento lançado à mão (Pix, dinheiro...)
+    // não tem um: com nullable = false nenhum pagamento manual podia ser gravado.
+    @Column(name = "payment_id")
     private String paymentId;
 
     @Column(name = "amount", nullable = false)
@@ -49,6 +51,10 @@ public class PaymentEntity extends BaseEntity {
     @ISensitive
     @Column(name = "receipt", columnDefinition = "TEXT")
     private String receipt;
+
+    /** Link da cobrança aberta no provedor de pagamento online, enquanto não é paga. */
+    @Column(name = "invoice_url", length = 500)
+    private String invoiceUrl;
 
     @Column(name = "receipt_name")
     private String receiptName;

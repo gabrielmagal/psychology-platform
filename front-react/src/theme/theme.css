@@ -1,0 +1,692 @@
+/*
+ * Identidade visual da plataforma.
+ *
+ * Tudo o que define a "cara" do sistema está aqui: cores, tipografia, espaçamentos,
+ * sombras e os componentes básicos (botão, cartão, selo, aviso, tabela, janela). As telas
+ * só usam estas variáveis e classes — para levar a mesma marca a outro sistema, este
+ * arquivo vai junto; para mudar a marca, mexe-se só aqui.
+ */
+
+:root {
+  /* Cor da marca */
+  --brand-50: #eef8f6;
+  --brand-100: #d6efea;
+  --brand-200: #aedfd6;
+  --brand-300: #7cc8bc;
+  --brand-400: #45aa9d;
+  --brand-500: #238d81;
+  --brand-600: #17736a;
+  --brand-700: #145c56;
+  --brand-800: #134a46;
+  --brand-900: #103b38;
+
+  /* Neutros */
+  --ink-0: #ffffff;
+  --ink-50: #f6f8f9;
+  --ink-100: #eef1f3;
+  --ink-200: #e0e5e9;
+  --ink-300: #c8d0d7;
+  --ink-400: #96a2ad;
+  --ink-500: #6a7783;
+  --ink-600: #4c5863;
+  --ink-700: #353f49;
+  --ink-800: #212931;
+  --ink-900: #131920;
+
+  /* Estados */
+  --success-600: #177a4c;
+  --success-100: #e3f5ec;
+  --warning-600: #a8690f;
+  --warning-100: #fdf1d8;
+  --danger-600: #c23434;
+  --danger-700: #a32a2a;
+  --danger-100: #fdeaea;
+  --info-600: #235f9f;
+  --info-100: #e6f0fa;
+
+  /* Superfícies */
+  --surface-page: var(--ink-50);
+  --surface-card: var(--ink-0);
+  --surface-sidebar: #0f2a2c;
+  --border: var(--ink-200);
+  --border-strong: var(--ink-300);
+  --text: var(--ink-800);
+  --text-muted: var(--ink-500);
+  --text-on-brand: #ffffff;
+
+  /* Forma */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(19, 25, 32, 0.06);
+  --shadow-md: 0 4px 14px rgba(19, 25, 32, 0.08);
+  --shadow-lg: 0 18px 48px rgba(19, 25, 32, 0.18);
+  --focus-ring: 0 0 0 3px rgba(35, 141, 129, 0.28);
+
+  /* Tipografia */
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+
+  /* Estrutura */
+  --sidebar-width: 256px;
+  --topbar-height: 60px;
+  --content-max: 1240px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  color: var(--ink-900);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--brand-600);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ------------------------------------------------------------------ página */
+
+.ui-page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 28px 28px 56px;
+}
+
+.ui-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ui-page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.ui-page-subtitle {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.ui-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ui-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.ui-muted {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ------------------------------------------------------------------ cartão */
+
+.ui-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 22px;
+}
+
+.ui-card-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------------- botão */
+
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ink-0);
+  color: var(--ink-700);
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-btn:hover:not(:disabled) {
+  background: var(--ink-50);
+  border-color: var(--ink-400);
+}
+
+.ui-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-btn--primary {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: var(--text-on-brand);
+}
+
+.ui-btn--primary:hover:not(:disabled) {
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+}
+
+.ui-btn--danger {
+  background: var(--danger-600);
+  border-color: var(--danger-600);
+  color: #fff;
+}
+
+.ui-btn--danger:hover:not(:disabled) {
+  background: var(--danger-700);
+  border-color: var(--danger-700);
+}
+
+.ui-btn--danger-soft {
+  color: var(--danger-600);
+  border-color: #efc4c4;
+  background: var(--ink-0);
+}
+
+.ui-btn--danger-soft:hover:not(:disabled) {
+  background: var(--danger-100);
+  border-color: var(--danger-600);
+}
+
+.ui-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--brand-700);
+}
+
+.ui-btn--ghost:hover:not(:disabled) {
+  background: var(--brand-50);
+  border-color: transparent;
+}
+
+.ui-btn--sm {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
+.ui-btn--icon {
+  width: 38px;
+  padding: 0;
+}
+
+/* -------------------------------------------------------------------- selo */
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.6;
+  background: var(--ink-100);
+  color: var(--ink-600);
+  white-space: nowrap;
+}
+
+.ui-badge--info {
+  background: var(--info-100);
+  color: var(--info-600);
+}
+
+.ui-badge--success {
+  background: var(--success-100);
+  color: var(--success-600);
+}
+
+.ui-badge--warning {
+  background: var(--warning-100);
+  color: var(--warning-600);
+}
+
+.ui-badge--danger {
+  background: var(--danger-100);
+  color: var(--danger-600);
+}
+
+/* ------------------------------------------------------------------- aviso */
+
+.ui-alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ink-0);
+}
+
+.ui-alert-icon {
+  flex: none;
+  font-size: 1.25rem;
+  margin-top: 1px;
+}
+
+.ui-alert-title {
+  font-weight: 650;
+  color: var(--ink-900);
+}
+
+.ui-alert-text {
+  color: var(--ink-700);
+  font-size: 0.92rem;
+}
+
+.ui-alert-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ui-alert-code {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
+.ui-alert--danger {
+  background: var(--danger-100);
+  border-color: #f2c9c9;
+}
+
+.ui-alert--danger .ui-alert-icon {
+  color: var(--danger-600);
+}
+
+.ui-alert--warning {
+  background: var(--warning-100);
+  border-color: #f1dba6;
+}
+
+.ui-alert--warning .ui-alert-icon {
+  color: var(--warning-600);
+}
+
+.ui-alert--info {
+  background: var(--info-100);
+  border-color: #c5daf0;
+}
+
+.ui-alert--info .ui-alert-icon {
+  color: var(--info-600);
+}
+
+.ui-alert--success {
+  background: var(--success-100);
+  border-color: #bfe5d1;
+}
+
+.ui-alert--success .ui-alert-icon {
+  color: var(--success-600);
+}
+
+/* --------------------------------------------------------- estados de tela */
+
+.ui-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 44px 20px;
+  color: var(--text-muted);
+}
+
+.ui-state-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  margin-bottom: 6px;
+}
+
+.ui-state-title {
+  font-weight: 650;
+  font-size: 1.02rem;
+  color: var(--ink-800);
+}
+
+.ui-skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--ink-100) 25%, var(--ink-200) 37%, var(--ink-100) 63%);
+  background-size: 400% 100%;
+  animation: ui-shimmer 1.3s ease infinite;
+}
+
+@keyframes ui-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ tabela */
+
+.ui-table-wrap {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.ui-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--ink-50);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ui-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--ink-100);
+  vertical-align: middle;
+}
+
+.ui-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ui-table tbody tr:hover {
+  background: var(--brand-50);
+}
+
+.ui-num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ janela */
+
+.ui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 16px;
+  overflow-y: auto;
+  background: rgba(15, 25, 30, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.ui-modal {
+  width: 100%;
+  max-width: 540px;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+}
+
+.ui-modal--wide {
+  max-width: 720px;
+}
+
+.ui-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.ui-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+/* -------------------------------------------------------------- formulário */
+
+.ui-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.ui-field input,
+.ui-field select,
+.ui-field textarea,
+.ui-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--ink-0);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.ui-field input:focus,
+.ui-field select:focus,
+.ui-field textarea:focus,
+.ui-input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: var(--focus-ring);
+}
+
+.ui-field-hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.ui-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* -------------------------------------------------------------- indicador */
+
+.ui-stat {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
+}
+
+.ui-stat-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ui-stat-value {
+  margin-top: 6px;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------------------------- lista */
+
+.ui-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--ink-100);
+}
+
+.ui-list-item:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 720px) {
+  .ui-page {
+    padding: 20px 16px 40px;
+  }
+
+  .ui-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ui-stat {
+    padding: 14px;
+  }
+
+  .ui-stat-value {
+    font-size: 1.3rem;
+  }
+
+  .ui-page-title {
+    font-size: 1.35rem;
+  }
+}
+
+@media print {
+  .ui-no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .ui-page {
+    padding: 0;
+    max-width: none;
+  }
+}
+
+/* Os campos do Material UI já desenham o próprio contorno de foco: sem isto ficava um anel duplo. */
+.MuiInputBase-input:focus-visible {
+  box-shadow: none;
+}

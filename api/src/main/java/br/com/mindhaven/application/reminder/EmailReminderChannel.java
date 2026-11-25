@@ -38,7 +38,7 @@ public class EmailReminderChannel implements ReminderChannel {
         String when = message.startsAt().format(WHEN);
         StringBuilder body = new StringBuilder()
                 .append("Olá, ").append(message.patientFirstName()).append("!\n\n")
-                .append("Este é um lembrete da sua sessão com ").append(message.psychologistName())
+                .append("Este é um lembrete da sua sessão com ").append(message.professionalName())
                 .append(" em ").append(when).append(".\n\n");
         if (message.online() && message.meetingLink() != null && !message.meetingLink().isBlank()) {
             body.append("O atendimento é online. Link de acesso: ").append(message.meetingLink()).append("\n\n");
