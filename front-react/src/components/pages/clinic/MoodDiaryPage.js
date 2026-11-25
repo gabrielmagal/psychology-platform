@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import styles from "./Clinic.module.css";
 import { ErrorState, Skeleton } from "../../ui/Feedback";
 import { errorText } from "../../../utils/errors";
-import { useApi, errorMessage, formatDate, MOODS } from "./clinicApi";
+import { useApi, formatDate, MOODS, SLEEP_QUALITY, sleepText } from "./clinicApi";
 
 export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbidden }) {
     const request = useApi({ keycloak, realm, onUnauthorized, onForbidden });
@@ -13,6 +13,8 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
     const [entries, setEntries] = useState([]);
     const [mood, setMood] = useState(null);
     const [note, setNote] = useState("");
+    const [sleepHours, setSleepHours] = useState("");
+    const [sleepQuality, setSleepQuality] = useState("");
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
 
@@ -25,6 +27,8 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
             if (todayEntry) {
                 setMood(todayEntry.mood);
                 setNote(todayEntry.note || "");
+                setSleepHours(todayEntry.sleepHours ?? "");
+                setSleepQuality(todayEntry.sleepQuality ?? "");
             }
         } catch (err) {
             setError(err);
@@ -41,7 +45,7 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
         }
         setSaving(true);
         try {
-            await request(`/clinic/mood`, { method: "POST", body: { date: today, mood, note } });
+            await request(`/clinic/mood`, { method: "POST", body: { date: today, mood, note, sleepHours, sleepQuality } });
             toast.success("Registro salvo.");
             load();
         } catch (err) {
@@ -57,7 +61,7 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
         <div className={styles.page}>
             <div className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Diário de humor</h1>
+                    <h1 className={styles.title}>Diário de humor e sono</h1>
                     <p className={styles.subtitle}>
                         Um registro por dia. Seu psicólogo vê estes registros para acompanhar você entre as sessões.
                     </p>
@@ -78,6 +82,20 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
                                 {m.emoji}
                             </button>
                         ))}
+                    </div>
+                    <div className={styles.row}>
+                        <label className={styles.field}>
+                            Quantas horas você dormiu? (opcional)
+                            <input type="number" min="0" max="24" step="0.5" placeholder="Ex.: 7" value={sleepHours}
+                                   onChange={(e) => setSleepHours(e.target.value)} />
+                        </label>
+                        <label className={styles.field}>
+                            Como foi o sono? (opcional)
+                            <select value={sleepQuality} onChange={(e) => setSleepQuality(e.target.value)}>
+                                <option value="">Não informar</option>
+                                {SLEEP_QUALITY.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}
+                            </select>
+                        </label>
                     </div>
                     <label className={styles.field}>
                         Quer anotar algo sobre o dia? (opcional)
@@ -101,6 +119,7 @@ export default function MoodDiaryPage({ keycloak, realm, onUnauthorized, onForbi
                                     <span>
                                         {moodOf(entry.mood)?.emoji} <strong>{formatDate(entry.date)}</strong> —{" "}
                                         {moodOf(entry.mood)?.label}
+                                        {sleepText(entry) && <span className={styles.muted}> · {sleepText(entry)}</span>}
                                     </span>
                                     {entry.note && <span className={styles.muted}>{entry.note}</span>}
                                 </li>

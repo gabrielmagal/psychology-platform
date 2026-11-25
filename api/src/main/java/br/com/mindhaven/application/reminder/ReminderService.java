@@ -44,6 +44,58 @@ public class ReminderService {
     @ConfigProperty(name = "app.frontend-url", defaultValue = "http://localhost:3000")
     String frontendUrl;
 
+    @ConfigProperty(name = "reminder.enabled", defaultValue = "false")
+    boolean schedulerEnabled;
+
+    @ConfigProperty(name = "reminder.every", defaultValue = "15m")
+    String every;
+
+    /** Como os lembretes automáticos estão configurados, para a tela da administração. */
+    public java.util.Map<String, Object> status() {
+        java.util.List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
+        for (ReminderChannel channel : channels) {
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("name", channel.name());
+            row.put("enabled", channel.isEnabled());
+            list.add(row);
+        }
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("enabled", schedulerEnabled);
+        result.put("hoursBefore", hoursBefore);
+        result.put("every", every);
+        result.put("channels", list);
+        return result;
+    }
+
+    /**
+     * Manda um lembrete de exemplo para o e-mail e o telefone informados, por todos os canais
+     * ligados. Serve para conferir a configuração sem esperar uma sessão de verdade.
+     */
+    public java.util.List<java.util.Map<String, Object>> sendTest(String firstName, String email, String phone) {
+        ReminderMessage message = new ReminderMessage(firstName, email, phone, "Profissional de teste",
+                LocalDateTime.now().plusHours(hoursBefore), false, null, frontendUrl);
+        java.util.List<java.util.Map<String, Object>> results = new java.util.ArrayList<>();
+        for (ReminderChannel channel : channels) {
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("name", channel.name());
+            if (!channel.isEnabled()) {
+                row.put("result", "DESLIGADO");
+            } else if (!channel.canReach(message)) {
+                row.put("result", "SEM_CONTATO");
+            } else {
+                try {
+                    channel.send(message);
+                    row.put("result", "ENVIADO");
+                } catch (Exception e) {
+                    row.put("result", "FALHOU");
+                    row.put("detail", e.getMessage());
+                }
+            }
+            results.add(row);
+        }
+        return results;
+    }
+
     /** @return quantas sessões foram lembradas nesta passada */
     @Transactional
     public int sendDueReminders(String tenant, LocalDateTime now) {

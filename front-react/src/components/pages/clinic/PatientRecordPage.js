@@ -7,7 +7,10 @@ import { Alert, EmptyState, ErrorState, Skeleton } from "../../ui/Feedback";
 import ConfirmDialog from "../../shared/dialog/ConfirmDialog";
 import { errorText } from "../../../utils/errors";
 import { saveBlob } from "../../../utils/fetchWithAuth";
-import { useApi, useDownload, formatDate, formatCpf, STATUS_LABEL, MOODS } from "./clinicApi";
+import { useApi, useDownload, formatDate, formatCpf, STATUS_LABEL, MOODS, sleepText } from "./clinicApi";
+import { SafetyPlanPanel, TasksPanel, TermsPanel } from "./PatientCarePanels";
+import InstrumentsPanel from "./InstrumentsPanel";
+import WrittenDocumentsPanel from "./WrittenDocumentsPanel";
 import SectionedNote from "../../ui/SectionedNote";
 import SessionRecordPanel, { RECORD_SECTIONS } from "./SessionRecordPanel";
 
@@ -24,6 +27,7 @@ const FIELDS = [
 // Na linha do tempo o registro aparece inteiro: as seções, os adendos e, para quem escreveu, as notas privadas.
 const TIMELINE_SECTIONS = [
     ...RECORD_SECTIONS,
+    { key: "technicalIssues", label: "Intercorrências do atendimento online" },
     { key: "addenda", label: "Adendos" },
     { key: "privateNotes", label: "Notas privadas", private: true },
 ];
@@ -33,7 +37,11 @@ const TABS = [
     ["anamnese", "Anamnese"],
     ["anexos", "Anexos"],
     ["documentos", "Documentos"],
-    ["humor", "Diário de humor"],
+    ["escalas", "Escalas"],
+    ["humor", "Humor e sono"],
+    ["tarefas", "Tarefas"],
+    ["plano", "Plano de crise"],
+    ["termos", "Termos"],
 ];
 
 const size = (bytes) => (bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
@@ -304,11 +312,18 @@ export default function PatientRecordPage(props) {
                 </div>
             )}
 
+            {tab === "documentos" && !record.readOnly && (
+                <div className={styles.card} style={{ marginBottom: 16 }}>
+                    <WrittenDocumentsPanel request={request} patientId={patientId} onIssued={load} />
+                </div>
+            )}
+
             {tab === "documentos" && (
                 <div className={styles.card}>
+                    <h2>Documentos emitidos</h2>
                     {documents.length === 0 ? (
                         <EmptyState icon={FiFileText} title="Nenhum documento emitido">
-                            Recibos, declarações e contratos emitidos para este paciente ficam guardados aqui, com numeração.
+                            Recibos, declarações, contratos, laudos e relatórios emitidos para este paciente ficam guardados aqui, com numeração.
                         </EmptyState>
                     ) : (
                         <ul className={styles.list}>
@@ -334,7 +349,10 @@ export default function PatientRecordPage(props) {
                         <ul className={styles.list}>
                             {moods.map((m) => (
                                 <li key={m.date} className={styles.listItem}>
-                                    <span>{moodOf(m.mood)?.emoji} <strong>{formatDate(m.date)}</strong> — {moodOf(m.mood)?.label}</span>
+                                    <span>
+                                        {moodOf(m.mood)?.emoji} <strong>{formatDate(m.date)}</strong> — {moodOf(m.mood)?.label}
+                                        {sleepText(m) && <span className={styles.muted}> · {sleepText(m)}</span>}
+                                    </span>
                                     {m.note && <span className={styles.muted}>{m.note}</span>}
                                 </li>
                             ))}
@@ -342,6 +360,11 @@ export default function PatientRecordPage(props) {
                     )}
                 </div>
             )}
+
+            {tab === "escalas" && <InstrumentsPanel request={request} patientId={patientId} readOnly={record.readOnly} />}
+            {tab === "tarefas" && <TasksPanel request={request} patientId={patientId} readOnly={record.readOnly} />}
+            {tab === "plano" && <SafetyPlanPanel request={request} patientId={patientId} />}
+            {tab === "termos" && <TermsPanel request={request} patientId={patientId} readOnly={record.readOnly} />}
 
             {removing && (
                 <ConfirmDialog

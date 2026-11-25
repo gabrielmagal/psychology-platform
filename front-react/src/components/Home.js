@@ -110,6 +110,38 @@ export default function Home({ keycloak, realm }) {
                         </Alert>
                     )}
 
+                    {isPatient && dashboard.pendingTerms > 0 && (
+                        <Alert tone="warning" title="Há um termo esperando a sua leitura"
+                               actions={<Link className="ui-btn ui-btn--sm" to="/termos">Ler e aceitar</Link>}>
+                            Seu psicólogo enviou um termo para você ler e aceitar antes do atendimento.
+                        </Alert>
+                    )}
+
+                    {isStaff && dashboard.formAlerts?.length > 0 && (
+                        <Alert tone="danger" title="Resposta com item de atenção">
+                            {dashboard.formAlerts.map((alert, index) => (
+                                <span key={index}>
+                                    <Link to={`/prontuario/${alert.patientId}`}>{alert.patientName}</Link> respondeu "{alert.title}" marcando
+                                    um item que pede acompanhamento de perto.{" "}
+                                </span>
+                            ))}
+                        </Alert>
+                    )}
+
+                    {isPatient && dashboard.pendingForms > 0 && (
+                        <Alert tone="info" title={`Você tem ${dashboard.pendingForms} questionário(s) para responder`}
+                               actions={<Link className="ui-btn ui-btn--sm" to="/questionarios">Responder</Link>}>
+                            Seu psicólogo pediu que você respondesse antes da próxima sessão.
+                        </Alert>
+                    )}
+
+                    {isPatient && dashboard.openTasks > 0 && (
+                        <Alert tone="info" title={`Você tem ${dashboard.openTasks} tarefa(s) para fazer`}
+                               actions={<Link className="ui-btn ui-btn--sm" to="/tarefas">Ver tarefas</Link>}>
+                            O que você combinou de fazer até a próxima sessão.
+                        </Alert>
+                    )}
+
                     {isPatient && dashboard.pendingRatings?.length > 0 && (
                         <Alert tone="info" title="Como foi a sua última sessão?"
                                actions={<Link className="ui-btn ui-btn--sm" to="/agenda">Avaliar na agenda</Link>}>
@@ -171,8 +203,13 @@ export default function Home({ keycloak, realm }) {
                     </Shortcut>
                 )}
                 {isPatient && (
-                    <Shortcut to="/diario" icon={FiSun} title="Diário de humor">
+                    <Shortcut to="/diario" icon={FiSun} title="Diário de humor e sono">
                         Registrar como você está entre as sessões
+                    </Shortcut>
+                )}
+                {isPatient && (
+                    <Shortcut to="/plano-de-crise" icon={FiShield} title="Plano de crise">
+                        O que fazer nos momentos difíceis, com os telefones de ajuda
                     </Shortcut>
                 )}
                 {isAdmin && (

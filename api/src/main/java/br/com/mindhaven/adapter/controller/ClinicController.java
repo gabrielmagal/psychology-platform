@@ -172,8 +172,15 @@ public class ClinicController {
     @Path("/mood")
     public void saveMood(Map<String, Object> body) {
         Integer mood = integer(body.get("mood"));
+        String hours = string(body.get("sleepHours"));
+        java.math.BigDecimal sleepHours;
+        try {
+            sleepHours = hours == null ? null : new java.math.BigDecimal(hours.replace(",", "."));
+        } catch (NumberFormatException e) {
+            throw core.error.BusinessException.invalid("Horas de sono inválidas.");
+        }
         clinic.saveMood(tenant(), me(), date(string(body.get("date"))), mood == null ? 0 : mood,
-                string(body.get("note")));
+                string(body.get("note")), sleepHours, integer(body.get("sleepQuality")));
     }
 
     // ------------------------------------------------------------------ painel

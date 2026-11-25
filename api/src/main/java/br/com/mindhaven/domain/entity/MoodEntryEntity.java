@@ -33,6 +33,14 @@ public class MoodEntryEntity extends BaseEntity {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
+    /** Horas dormidas na noite anterior. */
+    @Column(name = "sleep_hours")
+    private java.math.BigDecimal sleepHours;
+
+    /** Qualidade do sono, de 1 (péssimo) a 5 (ótimo). */
+    @Column(name = "sleep_quality")
+    private Integer sleepQuality;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 }

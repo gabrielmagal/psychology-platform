@@ -27,6 +27,14 @@ const PaymentSettingsPage = lazy(() => import("./components/pages/payment/Paymen
 const ProfessionalsPage = lazy(() => import("./components/pages/directory/ProfessionalsPage"));
 const ProfessionalProfilePage = lazy(() => import("./components/pages/directory/ProfessionalProfilePage"));
 const MyPublicProfilePage = lazy(() => import("./components/pages/directory/MyPublicProfilePage"));
+const carePage = (name) => lazy(() => import("./components/pages/clinic/MyCarePages").then((m) => ({ default: m[name] })));
+const MyTasksPage = carePage("MyTasksPage");
+const MySafetyPlanPage = carePage("MySafetyPlanPage");
+const MyTermsPage = carePage("MyTermsPage");
+const instrumentPage = (name) => lazy(() => import("./components/pages/clinic/InstrumentPages").then((m) => ({ default: m[name] })));
+const MyFormsPage = instrumentPage("MyFormsPage");
+const InstrumentTemplatesPage = instrumentPage("InstrumentTemplatesPage");
+const RemindersPage = instrumentPage("RemindersPage");
 const InsurancePage = lazy(() => import("./components/pages/clinic/InsurancePage"));
 const WaitlistPage = lazy(() => import("./components/pages/clinic/WaitlistPage"));
 const ReviewModerationPage = lazy(() => import("./components/pages/directory/ReviewModerationPage"));
@@ -95,6 +103,12 @@ function App({ keycloak, realm }) {
                                 {isStaff && <Route path="/lista-de-espera" element={<WaitlistPage {...pageProps} />} />}
                                 {isStaff && <Route path="/recebimento-online" element={<PaymentSettingsPage {...pageProps} />} />}
                                 {isPatient && <Route path="/diario" element={<MoodDiaryPage {...pageProps} />} />}
+                                {isPatient && <Route path="/tarefas" element={<MyTasksPage {...pageProps} />} />}
+                                {isPatient && <Route path="/plano-de-crise" element={<MySafetyPlanPage {...pageProps} />} />}
+                                {isPatient && <Route path="/termos" element={<MyTermsPage {...pageProps} />} />}
+                                {isPatient && <Route path="/questionarios" element={<MyFormsPage {...pageProps} />} />}
+                                {isProfessional && <Route path="/instrumentos" element={<InstrumentTemplatesPage {...pageProps} />} />}
+                                {isAdmin && <Route path="/lembretes" element={<RemindersPage {...pageProps} />} />}
                                 {isAdmin && <Route path="/audit-log" element={<AuditLogCrud {...pageProps} />} />}
                                 {isAdmin && <Route path="/guarda" element={<RetentionPage {...pageProps} />} />}
                                 <Route path="*" element={<Navigate to="/" />} />

@@ -52,6 +52,16 @@ export const MOODS = [
     { value: 5, emoji: "😄", label: "Muito bem" },
 ];
 
+export const SLEEP_QUALITY = ["Péssimo", "Ruim", "Regular", "Bom", "Ótimo"];
+
+/** "Dormiu 6,5 h · sono regular", com o que a pessoa informou. */
+export function sleepText(entry) {
+    const parts = [];
+    if (entry.sleepHours != null && entry.sleepHours !== "") parts.push(`dormiu ${String(entry.sleepHours).replace(".", ",")} h`);
+    if (entry.sleepQuality) parts.push(`sono ${SLEEP_QUALITY[entry.sleepQuality - 1].toLowerCase()}`);
+    return parts.join(" · ");
+}
+
 export function money(value) {
     return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }

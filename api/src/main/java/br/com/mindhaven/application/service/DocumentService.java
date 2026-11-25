@@ -43,6 +43,10 @@ public class DocumentService {
     public static final String RECEIPT = "RECIBO";
     public static final String ATTENDANCE = "DECLARACAO";
     public static final String CONTRACT = "CONTRATO";
+    /** Prefixo de um parágrafo que é título de seção. */
+    public static final String HEADING = "## ";
+    /** O que o paciente abre pelo aplicativo. O resto é entregue pelo profissional. */
+    private static final java.util.Set<String> PATIENT_VISIBLE = java.util.Set.of(RECEIPT, ATTENDANCE);
 
     private static final Locale BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -161,6 +165,48 @@ public class DocumentService {
         return describe(document);
     }
 
+    /**
+     * Emite um documento escrito pelo profissional (atestado, relatório, laudo, parecer). Os
+     * parágrafos chegam prontos; os que começam com {@link #HEADING} são títulos de seção.
+     *
+     * @return o id do documento emitido
+     */
+    public UUID issueWritten(String tenant, UserEntity professional, UserEntity patient, String type, String title,
+                             UUID referenceId, List<String> paragraphs) {
+        dao.defineSchema(tenant);
+        Map<String, Object> author = new LinkedHashMap<>();
+        author.put("id", professional.getId());
+        author.put("name", (professional.getFirstName() + " " + professional.getLastName()).trim());
+        author.put("cpf", professional.getCpf());
+        author.put("crp", professional.getCrp());
+        String patientName = (patient.getFirstName() + " " + patient.getLastName()).trim();
+
+        List<String> body = new ArrayList<>();
+        body.add("Pessoa atendida: " + patientName + ", CPF " + cpf(patient.getCpf()) + ".");
+        body.add("Autor(a): " + author.get("name") + ", psicólogo(a), " + crp(author) + ".");
+        body.addAll(paragraphs);
+
+        int year = LocalDate.now().getYear();
+        int number = em.createQuery("select coalesce(max(d.docNumber), 0) from IssuedDocumentEntity d "
+                        + "where d.docType = :t and d.docYear = :y", Integer.class)
+                .setParameter("t", type).setParameter("y", year).getSingleResult() + 1;
+        String code = String.format("%04d/%d", number, year);
+
+        IssuedDocumentEntity document = new IssuedDocumentEntity();
+        document.setDocType(type);
+        document.setDocYear(year);
+        document.setDocNumber(number);
+        document.setTitle(title + " nº " + code + " — " + patientName);
+        document.setPatientId(patient.getId());
+        document.setProfessionalId(professional.getId());
+        document.setReferenceId(referenceId);
+        document.setIssuedBy(professional.getId());
+        document.setIssuedAt(LocalDateTime.now());
+        document.setContent(render(title, code, body, author, null));
+        em.persist(document);
+        return document.getId();
+    }
+
     public List<Map<String, Object>> list(String tenant, UserEntity user, UUID patientId) {
         dao.defineSchema(tenant);
         UUID target = patientId;
@@ -177,8 +223,8 @@ public class DocumentService {
         if (user.getUserType() == UserType.PROFISSIONAL) query.setParameter("me", user.getId());
         List<Map<String, Object>> result = new ArrayList<>();
         for (IssuedDocumentEntity d : query.getResultList()) {
-            // O contrato fica com o profissional; o paciente vê recibos e declarações.
-            if (user.getUserType() == UserType.PACIENTE && CONTRACT.equals(d.getDocType())) continue;
+            // O paciente vê recibos e declarações; contrato, laudo e relatório ficam com o profissional.
+            if (user.getUserType() == UserType.PACIENTE && !PATIENT_VISIBLE.contains(d.getDocType())) continue;
             result.add(describe(d));
         }
         return result;
@@ -191,7 +237,7 @@ public class DocumentService {
         boolean allowed = switch (user.getUserType()) {
             case ADMINISTRADOR -> true;
             case PROFISSIONAL -> user.getId().equals(document.getProfessionalId());
-            case PACIENTE -> user.getId().equals(document.getPatientId()) && !CONTRACT.equals(document.getDocType());
+            case PACIENTE -> user.getId().equals(document.getPatientId()) && PATIENT_VISIBLE.contains(document.getDocType());
         };
         if (!allowed) throw new SecurityException("Você não tem acesso a este documento.");
         return document;
@@ -228,6 +274,13 @@ public class DocumentService {
         pdf.add(numbering);
 
         for (String text : paragraphs) {
+            if (text.startsWith(HEADING)) {
+                Paragraph section = new Paragraph(text.substring(HEADING.length()), BOLD);
+                section.setSpacingBefore(10);
+                section.setSpacingAfter(6);
+                pdf.add(section);
+                continue;
+            }
             Paragraph p = new Paragraph(text, BODY);
             p.setAlignment(Element.ALIGN_JUSTIFIED);
             p.setLeading(18);

@@ -175,6 +175,7 @@ public class AgendaService {
         boolean author = isAuthor(user, session);
         Map<String, Object> result = SessionRecord.read(session);
         if (author) result.put("privateNotes", session.getPrivateNotes());
+        result.put("modality", session.getModality() == null ? SessionModality.PRESENCIAL.name() : session.getModality().name());
         result.put("canEdit", author && session.getRecordSignedAt() == null);
         result.put("canAddAddendum", author && session.getRecordSignedAt() != null);
         return result;

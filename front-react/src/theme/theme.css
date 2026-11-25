@@ -1251,3 +1251,113 @@ a.ui-person-card:focus-visible {
   background: var(--brand-600);
   color: var(--text-on-brand);
 }
+
+/* ---------------------------------------------------------------- gráfico de linha */
+.ui-chart {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+}
+
+.ui-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ui-chart-line {
+  fill: none;
+  stroke: var(--brand-500);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ui-chart-dot {
+  fill: var(--ink-0);
+  stroke: var(--brand-500);
+  stroke-width: 2.5;
+}
+
+.ui-chart-dot--flagged {
+  fill: var(--danger-600);
+  stroke: var(--danger-600);
+}
+
+.ui-chart-axis {
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+.ui-chart-value {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+/* -------------------------------------------------------------------- questionário */
+.ui-questionnaire-intro {
+  margin: 0 0 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ui-questionnaire-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.ui-question-text {
+  display: block;
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+.ui-question-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ui-question-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 0.88rem;
+  background: var(--ink-0);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ui-question-option--on {
+  color: var(--ink-0);
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+}
+
+.ui-question-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-question-option:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
+.ui-question textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.ui-question-answer {
+  font-weight: 600;
+}

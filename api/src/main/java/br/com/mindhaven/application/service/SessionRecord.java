@@ -47,6 +47,7 @@ public final class SessionRecord {
         record.put("interventions", interventions);
         record.put("evolution", evolution);
         record.put("plan", s.getPlan());
+        record.put("technicalIssues", s.getTechnicalIssues());
         record.put("riskAlert", Boolean.TRUE.equals(s.getRiskAlert()));
         record.put("addenda", s.getAddenda());
         record.put("signedAt", s.getRecordSignedAt() == null ? null : s.getRecordSignedAt().toString());
@@ -67,6 +68,7 @@ public final class SessionRecord {
         s.setInterventions(text(body.get("interventions")));
         s.setEvolution(text(body.get("evolution")));
         s.setPlan(text(body.get("plan")));
+        if (body.containsKey("technicalIssues")) s.setTechnicalIssues(text(body.get("technicalIssues")));
         s.setRiskAlert(Boolean.TRUE.equals(body.get("riskAlert")));
         if (body.containsKey("privateNotes")) s.setPrivateNotes(text(body.get("privateNotes")));
         s.setSummary(null);

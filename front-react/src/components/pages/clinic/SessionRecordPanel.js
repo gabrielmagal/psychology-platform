@@ -23,6 +23,12 @@ export const RECORD_SECTIONS = [
         placeholder: "Ex.: Diário do sono por 7 dias. Próxima sessão: rever rotina noturna." },
 ];
 
+const ONLINE_SECTION = [
+    { key: "technicalIssues", label: "Intercorrências do atendimento online",
+        hint: "Quedas de conexão, troca de plataforma, interrupções no ambiente do paciente e como foram resolvidas.",
+        placeholder: "Ex.: A conexão caiu aos 20 minutos; retomamos em 3 minutos pela mesma sala." },
+];
+
 const PRIVATE_SECTION = [
     { key: "privateNotes", label: "Notas privadas", private: true,
         hint: "Anotações pessoais suas. Não fazem parte do prontuário e ninguém mais as vê, nem a administração.",
@@ -112,6 +118,9 @@ export default function SessionRecordPanel({ sessionId, request, onSaved }) {
             {record.canEdit ? (
                 <>
                     <SectionedNote sections={RECORD_SECTIONS} values={draft} onChange={change} />
+                    {(record.modality === "ONLINE" || draft.technicalIssues) && (
+                        <SectionedNote sections={ONLINE_SECTION} values={draft} onChange={change} />
+                    )}
                     <label className="ui-check">
                         <input type="checkbox" checked={!!draft.riskAlert}
                                onChange={(e) => change({ ...draft, riskAlert: e.target.checked })} />
@@ -138,6 +147,7 @@ export default function SessionRecordPanel({ sessionId, request, onSaved }) {
                         </span>
                     )}
                     <SectionedNote sections={RECORD_SECTIONS} values={record} readOnly emptyText="Esta sessão ainda não tem registro." />
+                    {record.technicalIssues && <SectionedNote sections={ONLINE_SECTION} values={record} readOnly />}
                     {record.privateNotes && <SectionedNote sections={PRIVATE_SECTION} values={record} readOnly />}
                 </>
             )}

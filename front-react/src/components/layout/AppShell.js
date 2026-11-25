@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
     FiCalendar, FiChevronDown, FiCreditCard, FiDollarSign, FiHome, FiLogOut, FiMenu, FiPackage,
-    FiArchive, FiAward, FiBriefcase, FiClock, FiMessageSquare, FiShield, FiStar, FiSun, FiUser, FiUsers, FiX,
+    FiActivity, FiArchive, FiAward, FiBell, FiBriefcase, FiCheckSquare, FiClipboard, FiClock, FiFileText, FiLifeBuoy, FiMessageSquare, FiShield, FiStar, FiSun, FiUser, FiUsers, FiX,
 } from "react-icons/fi";
 import styles from "./AppShell.module.css";
 import { brand, BrandMark } from "../../theme/brand";
@@ -29,6 +29,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
                 { to: "/usuarios", label: "Pacientes e usuários", icon: FiUsers },
                 { to: "/sessions-package", label: "Pacotes de sessões", icon: FiPackage },
                 { to: "/lista-de-espera", label: "Lista de espera", icon: FiClock },
+                isProfessional && { to: "/instrumentos", label: "Instrumentos", icon: FiActivity },
                 isProfessional && { to: "/meu-perfil-publico", label: "Meu perfil público", icon: FiStar },
             ].filter(Boolean),
         },
@@ -44,13 +45,18 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
             label: "Meu acompanhamento",
             items: [
                 { to: "/sessions-package", label: "Meus pacotes", icon: FiPackage },
-                { to: "/diario", label: "Diário de humor", icon: FiSun },
+                { to: "/diario", label: "Diário de humor e sono", icon: FiSun },
+                { to: "/tarefas", label: "Minhas tarefas", icon: FiCheckSquare },
+                { to: "/questionarios", label: "Questionários", icon: FiClipboard },
+                { to: "/plano-de-crise", label: "Plano de crise", icon: FiLifeBuoy },
+                { to: "/termos", label: "Termos", icon: FiFileText },
             ],
         },
         isAdmin && {
             label: "Administração",
             items: [
                 { to: "/avaliacoes", label: "Avaliações", icon: FiMessageSquare },
+                { to: "/lembretes", label: "Lembretes automáticos", icon: FiBell },
                 { to: "/audit-log", label: "Auditoria", icon: FiShield },
                 { to: "/guarda", label: "Guarda de prontuários", icon: FiArchive },
             ],

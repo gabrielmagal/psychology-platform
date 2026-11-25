@@ -88,6 +88,12 @@ public class ClinicService {
     @Inject
     MeetingRooms meetingRooms;
 
+    @Inject
+    CareService care;
+
+    @Inject
+    InstrumentService instruments;
+
     // ------------------------------------------------------------------ agenda
 
     public List<Map<String, Object>> agenda(String tenant, UserEntity user, LocalDate from, LocalDate to) {
@@ -585,6 +591,18 @@ public class ClinicService {
     }
 
     public void saveMood(String tenant, UserEntity user, LocalDate date, int mood, String note) {
+        saveMood(tenant, user, date, mood, note, null, null);
+    }
+
+    /** Registro do dia: humor e, se a pessoa quiser, quanto e como dormiu. */
+    public void saveMood(String tenant, UserEntity user, LocalDate date, int mood, String note,
+                         BigDecimal sleepHours, Integer sleepQuality) {
+        if (sleepHours != null && (sleepHours.signum() < 0 || sleepHours.compareTo(BigDecimal.valueOf(24)) > 0)) {
+            throw core.error.BusinessException.invalid("As horas de sono vão de 0 a 24.");
+        }
+        if (sleepQuality != null && (sleepQuality < 1 || sleepQuality > 5)) {
+            throw core.error.BusinessException.invalid("A qualidade do sono vai de 1 a 5.");
+        }
         if (user.getUserType() != UserType.PACIENTE) {
             throw new SecurityException("O diário de humor é preenchido pelo paciente.");
         }
@@ -602,6 +620,8 @@ public class ClinicService {
         entry.setEntryDate(day);
         entry.setMood(mood);
         entry.setNote(note);
+        entry.setSleepHours(sleepHours);
+        entry.setSleepQuality(sleepQuality);
         entry.setCreatedAt(LocalDateTime.now());
         em.merge(entry);
     }
@@ -626,6 +646,8 @@ public class ClinicService {
                     .filter(i -> SessionStatus.REALIZADA.name().equals(i.get("status")))
                     .filter(i -> !Boolean.TRUE.equals(i.get("rated")))
                     .toList());
+            result.putAll(care.patientSummary(tenant, user));
+            result.put("pendingForms", instruments.pendingFor(tenant, user));
         } else {
             result.put("unconfirmed", week.stream()
                     .filter(i -> SessionStatus.AGENDADA.name().equals(i.get("status")))
@@ -633,6 +655,7 @@ public class ClinicService {
             List<Map<String, Object>> past = agenda(tenant, user, today.minusDays(30), today.minusDays(1));
             result.put("toClose", past.stream()
                     .filter(i -> SessionStatus.AGENDADA.name().equals(i.get("status"))).toList());
+            result.put("formAlerts", instruments.recentAlerts(tenant, user));
             Map<String, Object> finance = finance(tenant, user, null, null);
             result.put("receivedThisMonth", finance.get("received"));
             result.put("outstanding", finance.get("outstanding"));
@@ -654,6 +677,8 @@ public class ClinicService {
             row.put("date", text(m.getEntryDate()));
             row.put("mood", m.getMood());
             row.put("note", m.getNote());
+            row.put("sleepHours", m.getSleepHours());
+            row.put("sleepQuality", m.getSleepQuality());
             rows.add(row);
         }
         return rows;

@@ -611,6 +611,129 @@ check("e continua no histórico", "Carlos E2E" in [q["name"] for q in expect(
 expect("administrador remove da fila", http("DELETE", f"{API}/clinic/waitlist/{w2['id']}", token=admin), 204)
 expect("psicóloga remove da fila", http("DELETE", f"{API}/clinic/waitlist/{w1['id']}", token=psy), 204)
 
+# ------------------- espaço do paciente: tarefas, plano de crise, termo online, sono, intercorrências
+history, _ = psql(f"select version from {REALM}.flyway_schema_history order by installed_rank")
+check("migrações do espaço do paciente e dos instrumentos aplicadas", "20261201" in history and "20261202" in history, history)
+for table in ("patient_task", "safety_plan", "patient_term", "form_response", "clinical_document"):
+    psql(f"delete from {REALM}.{table} where patient_id = '{pat_id}'")
+psql(f"delete from {REALM}.form_template where owner_id = '{psy_id}'")
+psql(f"delete from {REALM}.document_template where owner_id = '{psy_id}'")
+psql(f"delete from {REALM}.issued_document where patient_id = '{pat_id}' and doc_type in ('LAUDO', 'ATESTADO', 'RELATORIO')")
+
+expect("profissional vinculada ao paciente abre as tarefas", http("GET", f"{API}/clinic/tasks?patientId={pat_id}", token=psy2), 200)
+expect("administrador NÃO passa tarefa", http("POST", f"{API}/clinic/tasks", token=admin, body={"patientId": pat_id, "title": "x"}), 403)
+task = expect("psicóloga passa uma tarefa", http("POST", f"{API}/clinic/tasks", token=psy, body={
+    "patientId": pat_id, "title": "Diário do sono por 7 dias", "description": "Anotar a hora de deitar e de levantar."}), 200)
+mine = expect("paciente vê as tarefas", http("GET", f"{API}/clinic/tasks", token=pat), 200)
+check("com orientação e nome da profissional", mine and mine[0]["description"].startswith("Anotar") and mine[0]["professionalName"] == "Psicologa Teste", mine)
+stored, _ = psql(f"select description from {REALM}.patient_task where id = '{task['id']}'")
+check("orientação da tarefa fica cifrada no banco", stored.startswith("enc:v1:"), stored[:20])
+expect("psicóloga NÃO marca a tarefa pelo paciente", http("PUT", f"{API}/clinic/tasks/{task['id']}/done", token=psy, body={"done": True}), 403)
+expect("paciente conclui e conta como foi", http("PUT", f"{API}/clinic/tasks/{task['id']}/done", token=pat, body={"done": True, "note": "Fiz 5 dias"}), 204)
+seen = expect("psicóloga acompanha", http("GET", f"{API}/clinic/tasks?patientId={pat_id}", token=psy), 200)
+check("tarefa feita com o relato do paciente", seen[0]["done"] and seen[0]["patientNote"] == "Fiz 5 dias", seen)
+check("outra profissional não vê a tarefa da colega", expect("tarefas vistas pela colega", http("GET", f"{API}/clinic/tasks?patientId={pat_id}", token=psy2), 200) == [], None)
+
+expect("paciente NÃO escreve o plano de crise", http("PUT", f"{API}/clinic/safety-plan/{pat_id}", token=pat, body={"coping": "x"}), 403)
+expect("psicóloga escreve o plano de crise", http("PUT", f"{API}/clinic/safety-plan/{pat_id}", token=psy, body={
+    "warningSigns": "Ficar sem dormir", "coping": "Respirar contando até 4", "supportPeople": "Ana (irmã) — 11 91111-2222"}), 204)
+plan = expect("paciente abre o plano de crise", http("GET", f"{API}/clinic/safety-plan", token=pat), 200)
+check("plano com os passos e o contato de emergência do cadastro", len(plan["plans"]) == 1 and plan["plans"][0]["coping"].startswith("Respirar")
+      and plan["emergencyContactName"] == "Mãe" and plan["canEdit"] is False, plan)
+stored, _ = psql(f"select coping from {REALM}.safety_plan where patient_id = '{pat_id}'")
+check("plano de crise fica cifrado no banco", stored.startswith("enc:v1:"), stored[:20])
+
+term = expect("psicóloga envia o termo de atendimento online", http("POST", f"{API}/clinic/terms", token=psy, body={"patientId": pat_id}), 200)
+check("termo cita paciente, CRP e os telefones de urgência", "Paciente Teste" in term["content"] and "06/123456" in term["content"]
+      and "188" in term["content"] and "192" in term["content"], term["content"][:200])
+dash = expect("painel do paciente com pendências", http("GET", f"{API}/clinic/dashboard", token=pat), 200)
+check("painel avisa do termo pendente", dash["pendingTerms"] == 1 and dash["hasSafetyPlan"] is True, dash)
+expect("psicóloga NÃO aceita pelo paciente", http("PUT", f"{API}/clinic/terms/{term['id']}/sign", token=psy, body={"name": "Paciente Teste"}), 403)
+expect("aceite exige o nome completo", http("PUT", f"{API}/clinic/terms/{term['id']}/sign", token=pat, body={"name": "Paciente"}), 400)
+signed = expect("paciente aceita o termo", http("PUT", f"{API}/clinic/terms/{term['id']}/sign", token=pat, body={"name": "Paciente Teste"}), 200)
+check("aceite registrado com data e nome", signed["signed"] and signed["signedName"] == "Paciente Teste" and signed["signedAt"], signed)
+expect("não se aceita duas vezes", http("PUT", f"{API}/clinic/terms/{term['id']}/sign", token=pat, body={"name": "Paciente Teste"}), 409)
+
+expect("paciente registra humor e sono", http("POST", f"{API}/clinic/mood", token=pat, body={
+    "date": str(now.date()), "mood": 4, "note": "Dia bom", "sleepHours": "6,5", "sleepQuality": 3}), 204)
+diary = expect("psicóloga vê o diário com o sono", http("GET", f"{API}/clinic/mood?patientId={pat_id}", token=psy), 200)
+check("sono aparece junto do humor", float(diary[0]["sleepHours"]) == 6.5 and diary[0]["sleepQuality"] == 3, diary[0])
+expect("horas de sono absurdas são recusadas", http("POST", f"{API}/clinic/mood", token=pat, body={"date": str(now.date()), "mood": 4, "sleepHours": 40}), 400)
+
+online_day = (now + dt.timedelta(days=220)).date()
+online = expect("sessão online para o registro", http("POST", f"{API}/clinic/agenda", token=psy, body={
+    "sessionPackageId": pkg_id, "date": str(online_day), "startTime": "10:00", "modality": "ONLINE"}), 200)
+rec = expect("registro com intercorrência técnica", http("PUT", f"{API}/clinic/agenda/{online['created'][0]}/record", token=psy, body={
+    "demand": "Relato da semana", "technicalIssues": "Conexão caiu aos 20 min; retomada em 3 min."}), 200)
+check("registro guarda a intercorrência e sabe que é online", rec["technicalIssues"].startswith("Conexão") and rec["modality"] == "ONLINE", rec)
+
+# ---------------------------------------- escalas, formulários, laudos e lembretes automáticos
+catalog = expect("psicóloga lista os instrumentos", http("GET", f"{API}/clinic/instruments", token=psy), 200)
+check("PHQ-9, GAD-7 e WHO-5 prontos", {"PHQ9", "GAD7", "WHO5"} <= {t["code"] for t in catalog}
+      and len(next(t for t in catalog if t["code"] == "PHQ9")["items"]) == 9, [t["code"] for t in catalog])
+expect("paciente NÃO lista instrumentos", http("GET", f"{API}/clinic/instruments", token=pat), 403)
+applied = expect("psicóloga aplica o PHQ-9 toda semana", http("POST", f"{API}/clinic/forms", token=psy, body={
+    "patientId": pat_id, "templateCode": "PHQ9", "repeatDays": 7}), 200)
+expect("aplicar de novo com um pendente é recusado", http("POST", f"{API}/clinic/forms", token=psy, body={"patientId": pat_id, "templateCode": "PHQ9"}), 409)
+todo = expect("paciente vê o questionário", http("GET", f"{API}/clinic/forms", token=pat), 200)
+check("paciente recebe as perguntas e não a pontuação", todo[0]["definition"]["items"] and "score" not in todo[0], list(todo[0]))
+expect("resposta incompleta é recusada", http("PUT", f"{API}/clinic/forms/{applied['id']}/answers", token=pat, body={"answers": {"1": 1}}), 400)
+answered = expect("paciente responde", http("PUT", f"{API}/clinic/forms/{applied['id']}/answers", token=pat, body={
+    "answers": {str(i): v for i, v in enumerate([2, 2, 1, 2, 1, 1, 1, 1, 1], start=1)}}), 200)
+check("a resposta ao paciente não traz pontuação nem faixa", "score" not in answered and "band" not in answered, list(answered))
+stored, _ = psql(f"select answers from {REALM}.form_response where id = '{applied['id']}'")
+check("respostas ficam cifradas no banco", stored.startswith("enc:v1:"), stored[:20])
+form_results = expect("psicóloga lê o resultado", http("GET", f"{API}/clinic/forms?patientId={pat_id}", token=psy), 200)
+done = next(r for r in form_results if r["id"] == applied["id"])
+check("12 de 27, moderado, com alerta do item 9", done["score"] == 12 and done["band"] == "Moderado" and done["maxScore"] == 27 and done["alert"] is True, done)
+upcoming = next(r for r in form_results if r["id"] != applied["id"])
+check("a próxima aplicação ficou para daqui a 7 dias", upcoming["dueDate"] == str(now.date() + dt.timedelta(days=7)) and upcoming["available"] is False, upcoming)
+dash = expect("painel da psicóloga", http("GET", f"{API}/clinic/dashboard", token=psy), 200)
+check("painel destaca a resposta com item de atenção", any(a["patientId"] == pat_id for a in dash["formAlerts"]), dash["formAlerts"])
+expect("resposta dada não é apagada", http("DELETE", f"{API}/clinic/forms/{applied['id']}", token=psy), 409)
+expect("a próxima aplicação pode ser cancelada", http("DELETE", f"{API}/clinic/forms/{upcoming['id']}", token=psy), 204)
+
+custom = expect("psicóloga cria um formulário próprio", http("POST", f"{API}/clinic/instruments", token=psy, body={
+    "title": "Check-in E2E", "options": ["Nada", "Pouco", "Muito"],
+    "items": [{"text": "Segui a rotina", "type": "SCALE"}, {"text": "Tive crise", "type": "YESNO"}, {"text": "O que marcou", "type": "TEXT"}]}), 200)
+check("formulário próprio com pontuação máxima calculada", custom["maxScore"] == 2 and custom["builtIn"] is False, custom)
+check("a colega não vê o formulário dela", custom["code"] not in [t["code"] for t in expect(
+    "instrumentos da colega", http("GET", f"{API}/clinic/instruments", token=psy2), 200)], None)
+in_session = expect("aplica o formulário próprio", http("POST", f"{API}/clinic/forms", token=psy, body={"patientId": pat_id, "templateCode": custom["code"]}), 200)
+filled = expect("psicóloga preenche na sessão", http("PUT", f"{API}/clinic/forms/{in_session['id']}/answers", token=psy, body={
+    "answers": {"1": 2, "2": True, "3": "Voltei a caminhar"}}), 200)
+check("preenchido pela profissional, com as respostas", filled["answeredBy"] == "PROFISSIONAL" and filled["score"] == 2
+      and filled["answers"]["3"] == "Voltei a caminhar", filled)
+
+kinds = expect("tipos de documento do psicólogo", http("GET", f"{API}/clinic/written-documents/catalog", token=psy), 200)
+check("laudo com as 6 seções do CFP", len(next(k for k in kinds["kinds"] if k["code"] == "LAUDO")["sections"]) == 6, [k["code"] for k in kinds["kinds"]])
+expect("administrador NÃO escreve laudo", http("GET", f"{API}/clinic/written-documents/catalog", token=admin), 403)
+sections = {"identification": "Solicitado pela escola, para fins pedagógicos.", "demand": "Queixa de desatenção.",
+            "procedure": "Quatro entrevistas.", "analysis": "Atenção preservada em tarefas de interesse.",
+            "conclusion": "Sem indicativos de transtorno."}
+draft = expect("psicóloga salva o rascunho do laudo", http("POST", f"{API}/clinic/written-documents", token=psy, body={
+    "patientId": pat_id, "kind": "LAUDO", "title": "Laudo E2E", "sections": {"demand": "Queixa de desatenção."}}), 200)
+expect("laudo incompleto não é emitido", http("PUT", f"{API}/clinic/written-documents/{draft['id']}/issue", token=psy), 400)
+expect("a colega NÃO altera o rascunho", http("POST", f"{API}/clinic/written-documents", token=psy2, body={"id": draft["id"], "sections": sections}), 403)
+expect("psicóloga completa o laudo", http("POST", f"{API}/clinic/written-documents", token=psy, body={"id": draft["id"], "title": "Laudo E2E", "sections": sections}), 200)
+stored, _ = psql(f"select sections from {REALM}.clinical_document where id = '{draft['id']}'")
+check("texto do laudo fica cifrado no banco", stored.startswith("enc:v1:"), stored[:20])
+expect("salva como modelo", http("POST", f"{API}/clinic/written-documents/templates", token=psy, body={"kind": "LAUDO", "title": "Modelo E2E", "sections": sections}), 200)
+issued = expect("psicóloga emite o laudo", http("PUT", f"{API}/clinic/written-documents/{draft['id']}/issue", token=psy), 200)
+check("emitido, com o PDF guardado", issued["issued"] and issued["issuedDocumentId"], issued)
+code, body, hdrs = http("GET", f"{API}/clinic/documents/{issued['issuedDocumentId']}/pdf", token=psy)
+check("PDF do laudo abre para a autora", code == 200, code)
+expect("laudo emitido não é alterado", http("POST", f"{API}/clinic/written-documents", token=psy, body={"id": draft["id"], "sections": sections}), 409)
+code, body, hdrs = http("GET", f"{API}/clinic/documents/{issued['issuedDocumentId']}/pdf", token=pat)
+check("paciente NÃO baixa o laudo pelo aplicativo", code == 403, code)
+pat_docs = expect("documentos vistos pelo paciente", http("GET", f"{API}/clinic/documents", token=pat), 200)
+check("lista do paciente só tem recibo e declaração", all(d["type"] in ("RECIBO", "DECLARACAO") for d in pat_docs), [d["type"] for d in pat_docs])
+
+status = expect("administrador consulta os lembretes automáticos", http("GET", f"{API}/clinic/reminders/status", token=admin), 200)
+check("situação lista os canais", {"WhatsApp"} <= {c["name"] for c in status["channels"]}, status)
+expect("paciente NÃO consulta os lembretes", http("GET", f"{API}/clinic/reminders/status", token=pat), 403)
+expect("psicóloga NÃO dispara o teste", http("POST", f"{API}/clinic/reminders/test", token=psy), 403)
+
 # -------------------------------------------------------------------- painel
 for label, token in (("admin", admin), ("psicóloga", psy), ("paciente", pat)):
     dash = expect(f"painel do perfil {label}", http("GET", f"{API}/clinic/dashboard", token=token), 200)

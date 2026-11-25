@@ -124,6 +124,12 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
+    /** Atendimento online: quedas de conexão, troca de plataforma e outras intercorrências técnicas. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "technical_issues", columnDefinition = "TEXT")
+    private String technicalIssues;
+
     /** Sessões criadas juntas, numa repetição, têm o mesmo identificador de série. */
     @Column(name = "series_id")
     private java.util.UUID seriesId;
