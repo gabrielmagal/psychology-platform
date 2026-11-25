@@ -66,6 +66,8 @@ class ClinicSecondWaveTest {
     UserUseCase users;
     @Inject
     br.com.mindhaven.application.service.PatientAccess access;
+    @Inject
+    br.com.mindhaven.application.service.ProfessionalDirectory directory;
 
     private record Scenario(String tenant, UserEntity admin, UserEntity professional, UserEntity other,
                             UserEntity patient, SessionPackageEntity pkg) {
@@ -184,6 +186,121 @@ class ClinicSecondWaveTest {
 
         agenda.patientCancel(s.tenant(), s.patient(), session);
         assertEquals(SessionStatus.CANCELADA.name(), clinic.agenda(s.tenant(), s.patient(), monday, monday).getFirst().get("status"));
+    }
+
+    @Test
+    @DisplayName("registro da sessão: campos estruturados, conclusão com trava, adendo e nota privada")
+    void sessionRecord() {
+        Scenario s = scenario("v3_registro");
+        UUID session = schedule(s, nextMonday(3), "10:00");
+
+        Map<String, Object> saved = agenda.saveRecord(s.tenant(), s.professional(), session, Map.of(
+                "demand", "Dificuldade para dormir", "observations", "Ansioso, fala acelerada",
+                "interventions", "Higiene do sono", "evolution", "Boa adesão", "plan", "Diário do sono",
+                "riskAlert", true, "privateNotes", "hipótese a confirmar"));
+        assertEquals("Dificuldade para dormir", saved.get("demand"));
+        assertEquals(true, saved.get("canEdit"));
+        assertEquals("hipótese a confirmar", saved.get("privateNotes"));
+
+        // Só quem atendeu escreve; o administrador lê o prontuário, mas não a nota privada.
+        assertThrows(SecurityException.class, () -> agenda.saveRecord(s.tenant(), s.admin(), session, Map.of("demand", "x")));
+        assertThrows(SecurityException.class, () -> agenda.saveRecord(s.tenant(), s.other(), session, Map.of("demand", "x")));
+        assertThrows(SecurityException.class, () -> agenda.record(s.tenant(), s.patient(), session));
+        Map<String, Object> adminView = agenda.record(s.tenant(), s.admin(), session);
+        assertEquals("Higiene do sono", adminView.get("interventions"));
+        assertFalse(adminView.containsKey("privateNotes"));
+        assertEquals(false, adminView.get("canEdit"));
+        assertFalse(clinic.timeline(s.tenant(), s.admin(), s.patient().getId()).getFirst().containsKey("privateNotes"));
+        assertEquals("hipótese a confirmar",
+                clinic.timeline(s.tenant(), s.professional(), s.patient().getId()).getFirst().get("privateNotes"));
+
+        // Adendo só depois de concluir; concluído, o texto não muda mais.
+        assertEquals(409, assertThrows(BusinessException.class,
+                () -> agenda.addAddendum(s.tenant(), s.professional(), session, "x")).getStatus());
+        Map<String, Object> signed = agenda.signRecord(s.tenant(), s.professional(), session);
+        assertNotNull(signed.get("signedAt"));
+        assertEquals(false, signed.get("canEdit"));
+        assertEquals(409, assertThrows(BusinessException.class,
+                () -> agenda.saveRecord(s.tenant(), s.professional(), session, Map.of("demand", "outra"))).getStatus());
+        Map<String, Object> withAddendum = agenda.addAddendum(s.tenant(), s.professional(), session, "Paciente ligou remarcando.");
+        assertTrue(withAddendum.get("addenda").toString().endsWith("Paciente ligou remarcando."));
+        assertEquals("Dificuldade para dormir", withAddendum.get("demand"));
+
+        // Registro vazio não é concluído.
+        UUID empty = schedule(s, nextMonday(3), "14:00");
+        assertThrows(BusinessException.class, () -> agenda.signRecord(s.tenant(), s.professional(), empty));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @DisplayName("perfil público e avaliações: rascunho, publicação, nota, consentimento e moderação")
+    void profileAndReviews() {
+        Scenario s = scenario("v3_perfil");
+        UUID pro = s.professional().getId();
+
+        // Sem publicar, só o dono e o administrador veem.
+        assertTrue(directory.list(s.tenant(), s.patient(), null).isEmpty());
+        assertEquals(2, directory.list(s.tenant(), s.admin(), null).size());
+        assertThrows(BusinessException.class, () -> directory.view(s.tenant(), s.patient(), pro));
+        assertThrows(SecurityException.class, () -> directory.saveMine(s.tenant(), s.patient(), Map.of()));
+        assertThrows(BusinessException.class, () -> directory.saveMine(s.tenant(), s.professional(),
+                Map.of("published", true, "bio", "curto")), "publicar exige um texto de apresentação");
+
+        String bio = "Atendo adultos e adolescentes com foco em ansiedade e sono, em sessões de 50 minutos.";
+        Map<String, Object> mine = directory.saveMine(s.tenant(), s.professional(), Map.of(
+                "headline", "Psicóloga clínica", "bio", bio, "specialties", List.of("Ansiedade", "Sono", "Ansiedade"),
+                "approaches", List.of("TCC"), "attendsOnline", true, "sessionPrice", "180,00", "published", true));
+        assertEquals(List.of("Ansiedade", "Sono"), mine.get("specialties"), "itens repetidos são unificados");
+
+        List<Map<String, Object>> listed = directory.list(s.tenant(), s.patient(), "ansiedade");
+        assertEquals(1, listed.size());
+        assertEquals("06/123456", listed.getFirst().get("registration"));
+        assertTrue(directory.list(s.tenant(), s.patient(), "pediatria").isEmpty());
+        Map<String, Object> seen = directory.view(s.tenant(), s.patient(), pro);
+        assertEquals(bio, seen.get("bio"));
+        assertFalse(seen.containsKey("reviews"), "nota só aparece se o profissional escolher mostrar");
+
+        // Avaliação: só de sessão realizada, pelo paciente dela.
+        UUID session = schedule(s, nextMonday(3), "10:00");
+        assertEquals(409, assertThrows(BusinessException.class, () -> clinic.rate(s.tenant(), s.patient(), session,
+                5, "ótima", true, true)).getStatus());
+        clinic.changeStatus(s.tenant(), s.professional(), session, SessionStatus.REALIZADA);
+        assertThrows(SecurityException.class, () -> clinic.rate(s.tenant(), s.professional(), session, 5, "x", true, true));
+        clinic.rate(s.tenant(), s.patient(), session, 4, "Me senti acolhido.", true, true);
+        clinic.rate(s.tenant(), s.patient(), session, 5, "Me senti muito acolhido.", true, true);
+
+        Map<String, Object> received = directory.received(s.tenant(), s.professional(), null);
+        Map<?, ?> summary = (Map<?, ?>) received.get("summary");
+        assertEquals(1L, summary.get("count"), "avaliar de novo substitui a anterior");
+        assertEquals(0, new BigDecimal("5.0").compareTo((BigDecimal) summary.get("average")));
+        assertEquals(100L, summary.get("recommendPercent"));
+        Map<?, ?> item = ((List<Map<String, Object>>) received.get("items")).getFirst();
+        assertFalse(item.containsKey("authorName"), "o profissional não sabe quem avaliou");
+        assertThrows(SecurityException.class, () -> directory.received(s.tenant(), s.other(), pro));
+        assertThrows(SecurityException.class, () -> directory.received(s.tenant(), s.patient(), pro));
+
+        // Comentário público: precisa do paciente autorizar, do profissional mostrar e da clínica aprovar.
+        directory.saveMine(s.tenant(), s.professional(), Map.of("bio", bio, "published", true, "showReviews", true));
+        Map<String, Object> open = directory.view(s.tenant(), s.patient(), pro);
+        assertEquals(1L, ((Map<?, ?>) open.get("reviews")).get("count"));
+        assertTrue(((List<?>) open.get("comments")).isEmpty(), "comentário ainda não moderado");
+        List<Map<String, Object>> queue = directory.moderationQueue(s.tenant(), s.admin());
+        assertEquals(1, queue.size());
+        assertEquals("Paciente Teste", queue.getFirst().get("authorName"));
+        UUID reviewId = (UUID) queue.getFirst().get("id");
+        assertThrows(SecurityException.class, () -> directory.moderate(s.tenant(), s.professional(), reviewId, true),
+                "o profissional não aprova o próprio comentário");
+        directory.moderate(s.tenant(), s.admin(), reviewId, true);
+        Map<?, ?> comment = (Map<?, ?>) ((List<?>) directory.view(s.tenant(), s.patient(), pro).get("comments")).getFirst();
+        assertEquals("Me senti muito acolhido.", comment.get("comment"));
+        assertFalse(comment.containsKey("authorId"), "comentário público é anônimo");
+        assertFalse(comment.containsKey("authorName"));
+
+        // Recusado sai do ar, mas a nota continua contando.
+        directory.moderate(s.tenant(), s.admin(), reviewId, false);
+        Map<String, Object> after = directory.view(s.tenant(), s.patient(), pro);
+        assertTrue(((List<?>) after.get("comments")).isEmpty());
+        assertEquals(1L, ((Map<?, ?>) after.get("reviews")).get("count"));
     }
 
     @Test

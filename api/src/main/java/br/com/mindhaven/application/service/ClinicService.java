@@ -1,14 +1,12 @@
 package br.com.mindhaven.application.service;
 
 import br.com.mindhaven.application.usecase.interfaces.SessionUseCase;
-import br.com.mindhaven.domain.entity.AnnotationEntity;
 import br.com.mindhaven.domain.entity.ConsentRecordEntity;
 import br.com.mindhaven.domain.entity.MoodEntryEntity;
 import br.com.mindhaven.domain.entity.PatientRecordEntity;
 import br.com.mindhaven.domain.entity.PaymentEntity;
 import br.com.mindhaven.domain.entity.SessionEntity;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
-import br.com.mindhaven.domain.entity.SessionRatingEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
 import br.com.mindhaven.domain.entity.enums.SessionModality;
 import br.com.mindhaven.domain.entity.enums.SessionStatus;
@@ -81,7 +79,7 @@ public class ClinicService {
         List<SessionEntity> sessions = query.getResultList();
 
         boolean isPatient = user.getUserType() == UserType.PACIENTE;
-        Set<UUID> rated = isPatient ? ratedSessionIds(user) : Set.of();
+        Set<UUID> rated = isPatient ? reviews.reviewedContexts(tenant, user.getId(), REVIEW_CONTEXT) : Set.of();
         Map<UUID, String> professionalNames = new HashMap<>();
 
         List<Map<String, Object>> items = new ArrayList<>();
@@ -101,7 +99,12 @@ public class ClinicService {
             item.put("packageId", p.getId());
             item.put("packageTitle", p.getPackageTitle());
             item.put("singleSession", Boolean.TRUE.equals(p.getSingleSession()));
-            if (!isPatient) item.put("hasEvolution", s.getEvolution() != null && !s.getEvolution().isBlank());
+            if (!isPatient) {
+                item.put("hasRecord", !SessionRecord.isEmpty(s));
+                item.put("recordSigned", s.getRecordSignedAt() != null);
+                item.put("riskAlert", Boolean.TRUE.equals(s.getRiskAlert()));
+            }
+            item.put("professionalId", p.getProfessionalId());
             item.put("patientId", p.getPatient().getId());
             item.put("patientName", fullName(p.getPatient()));
             if (isPatient) {
@@ -170,7 +173,22 @@ public class ClinicService {
         ownedSession(tenant, user, sessionId).setRemindedAt(LocalDateTime.now());
     }
 
+    /** Contexto das avaliações de sessão no módulo de avaliações. */
+    public static final String REVIEW_CONTEXT = "SESSION";
+
+    @Inject
+    br.com.mindhaven.review.ReviewService reviews;
+
     public void rate(String tenant, UserEntity user, UUID sessionId, int rating, String comment) {
+        rate(tenant, user, sessionId, rating, comment, null, false);
+    }
+
+    /**
+     * O paciente avalia uma sessão realizada. A nota é do profissional que atendeu; o
+     * comentário só pode ir a público se o paciente autorizar (e depois a clínica aprovar).
+     */
+    public void rate(String tenant, UserEntity user, UUID sessionId, int rating, String comment,
+                     Boolean recommend, boolean allowPublicComment) {
         if (user.getUserType() != UserType.PACIENTE) {
             throw new SecurityException("Só o paciente avalia a sessão.");
         }
@@ -179,17 +197,10 @@ public class ClinicService {
         if (statusOf(session) != SessionStatus.REALIZADA) {
             throw core.error.BusinessException.conflict("Só é possível avaliar uma sessão já realizada.");
         }
-        SessionRatingEntity entity = em.createQuery(
-                        "select r from SessionRatingEntity r where r.session.id = :s and r.patient.id = :p",
-                        SessionRatingEntity.class)
-                .setParameter("s", sessionId).setParameter("p", user.getId())
-                .getResultStream().findFirst().orElseGet(SessionRatingEntity::new);
-        entity.setSession(session);
-        entity.setPatient(em.getReference(UserEntity.class, user.getId()));
-        entity.setRating(rating);
-        entity.setComment(comment);
-        entity.setCreatedAt(LocalDateTime.now());
-        em.merge(entity);
+        UUID professionalId = session.getSessionPackage().getProfessionalId();
+        if (professionalId == null) throw core.error.BusinessException.conflict("Esta sessão não tem profissional definido.");
+        reviews.submit(tenant, user.getId(), professionalId, REVIEW_CONTEXT, sessionId, rating, recommend,
+                comment, allowPublicComment);
     }
 
     // -------------------------------------------------------------- prontuário
@@ -281,21 +292,12 @@ public class ClinicService {
                 UUID owner = s.getSessionPackage().getProfessionalId();
                 item.put("professionalName", owner == null ? null : fullName(em.find(UserEntity.class, owner)));
             }
-            item.put("evolution", s.getEvolution());
-            item.put("summary", s.getSummary());
-            item.put("privateNotes", s.getPrivateNotes());
-            item.put("packageTitle", s.getSessionPackage().getPackageTitle());
-            List<Map<String, Object>> annotations = new ArrayList<>();
-            for (AnnotationEntity a : s.getAnnotation()) {
-                Map<String, Object> note = new LinkedHashMap<>();
-                note.put("mainFeeling", a.getMainFeeling());
-                note.put("significantEvents", a.getSignificantEvents());
-                note.put("currentPhase", a.getCurrentPhase());
-                note.put("dominantThought", a.getDominantThought());
-                note.put("intervention", a.getIntervention());
-                annotations.add(note);
+            item.putAll(SessionRecord.read(s));
+            // Nota privada é de quem escreveu: o administrador lê o prontuário, não ela.
+            if (user.getId().equals(s.getSessionPackage().getProfessionalId())) {
+                item.put("privateNotes", s.getPrivateNotes());
             }
-            item.put("annotations", annotations);
+            item.put("packageTitle", s.getSessionPackage().getPackageTitle());
             items.add(item);
         }
         return items;
@@ -583,12 +585,6 @@ public class ClinicService {
             rows.add(row);
         }
         return rows;
-    }
-
-    private Set<UUID> ratedSessionIds(UserEntity patient) {
-        return new HashSet<>(em.createQuery(
-                        "select r.session.id from SessionRatingEntity r where r.patient.id = :p", UUID.class)
-                .setParameter("p", patient.getId()).getResultList());
     }
 
     private PatientRecordEntity findRecord(UUID patientId, UUID professionalId) {

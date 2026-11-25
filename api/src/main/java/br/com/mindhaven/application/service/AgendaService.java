@@ -113,17 +113,55 @@ public class AgendaService {
 
     // ---------------------------------------------------------------- evolução
 
-    public void saveEvolution(String tenant, UserEntity user, UUID sessionId, String evolution) {
-        requireStaff(user);
-        ownedSession(tenant, user, sessionId).setEvolution(evolution == null || evolution.isBlank() ? null : evolution);
-    }
-
-    public Map<String, Object> evolution(String tenant, UserEntity user, UUID sessionId) {
+    /**
+     * Registro clínico da sessão. O administrador lê (ele responde pela clínica), mas quem
+     * escreve é só o profissional que atendeu. As notas privadas são só de quem as escreveu.
+     */
+    public Map<String, Object> record(String tenant, UserEntity user, UUID sessionId) {
         requireStaff(user);
         SessionEntity session = ownedSession(tenant, user, sessionId);
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("evolution", session.getEvolution());
+        boolean author = isAuthor(user, session);
+        Map<String, Object> result = SessionRecord.read(session);
+        if (author) result.put("privateNotes", session.getPrivateNotes());
+        result.put("canEdit", author && session.getRecordSignedAt() == null);
+        result.put("canAddAddendum", author && session.getRecordSignedAt() != null);
         return result;
+    }
+
+    public Map<String, Object> saveRecord(String tenant, UserEntity user, UUID sessionId, Map<String, Object> body) {
+        SessionRecord.write(authoredSession(tenant, user, sessionId), body == null ? Map.of() : body);
+        return record(tenant, user, sessionId);
+    }
+
+    public Map<String, Object> signRecord(String tenant, UserEntity user, UUID sessionId) {
+        SessionRecord.sign(authoredSession(tenant, user, sessionId), LocalDateTime.now());
+        return record(tenant, user, sessionId);
+    }
+
+    public Map<String, Object> addAddendum(String tenant, UserEntity user, UUID sessionId, String text) {
+        SessionRecord.addendum(authoredSession(tenant, user, sessionId), text, LocalDateTime.now());
+        return record(tenant, user, sessionId);
+    }
+
+    /** Atalho antigo: grava só o campo de evolução, mantendo o resto do registro. */
+    public void saveEvolution(String tenant, UserEntity user, UUID sessionId, String evolution) {
+        SessionEntity session = authoredSession(tenant, user, sessionId);
+        Map<String, Object> current = new LinkedHashMap<>(SessionRecord.read(session));
+        current.put("evolution", evolution);
+        SessionRecord.write(session, current);
+    }
+
+    private SessionEntity authoredSession(String tenant, UserEntity user, UUID sessionId) {
+        SessionEntity session = ownedSession(tenant, user, sessionId);
+        if (!isAuthor(user, session)) {
+            throw new SecurityException("O registro da sessão é escrito pelo profissional que atendeu.");
+        }
+        return session;
+    }
+
+    private static boolean isAuthor(UserEntity user, SessionEntity session) {
+        return user.getUserType() == UserType.PROFISSIONAL
+                && user.getId().equals(session.getSessionPackage().getProfessionalId());
     }
 
     // ----------------------------------------------------------- sessão avulsa

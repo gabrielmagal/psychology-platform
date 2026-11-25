@@ -60,6 +60,45 @@ public class SessionEntity extends BaseEntity {
     @Column(name = "evolution", columnDefinition = "TEXT")
     private String evolution;
 
+    // Registro clínico estruturado (Resolução CFP 001/2009). Ver SessionRecord.
+    /** O que o paciente trouxe: a demanda e o relato da sessão. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "demand", columnDefinition = "TEXT")
+    private String demand;
+
+    /** O que o profissional observou: estado emocional, comportamento, humor. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "observations", columnDefinition = "TEXT")
+    private String observations;
+
+    /** Procedimentos e técnicas utilizados. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "interventions", columnDefinition = "TEXT")
+    private String interventions;
+
+    /** Encaminhamentos, combinados e foco da próxima sessão. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "plan", columnDefinition = "TEXT")
+    private String plan;
+
+    /** Complementos datados, feitos depois que o registro foi concluído. */
+    @ISensitive
+    @Convert(converter = core.crypto.EncryptedString.class)
+    @Column(name = "addenda", columnDefinition = "TEXT")
+    private String addenda;
+
+    /** Sinal de atenção: algo nesta sessão pede acompanhamento de perto. */
+    @Column(name = "risk_alert")
+    private Boolean riskAlert;
+
+    /** Quando o registro foi concluído. Depois disso ele só recebe adendos. */
+    @Column(name = "record_signed_at")
+    private LocalDateTime recordSignedAt;
+
     @Column(name = "start_time")
     private java.time.LocalTime startTime;
 

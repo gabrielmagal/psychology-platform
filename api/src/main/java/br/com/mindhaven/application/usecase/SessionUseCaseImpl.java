@@ -84,9 +84,7 @@ public class SessionUseCaseImpl implements SessionUseCase {
         stored.setDateSession(entity.getDateSession());
         stored.setStartTime(entity.getStartTime());
         stored.setTitle(entity.getTitle());
-        stored.setSummary(entity.getSummary());
-        stored.setEvolution(entity.getEvolution());
-        stored.setPrivateNotes(entity.getPrivateNotes());
+        // O registro clínico não vem deste formulário: copiá-lo daqui o apagaria.
         stored.setAttendedAt(entity.getAttendedAt());
         stored.setMeetingLink(entity.getMeetingLink());
         if (entity.getDurationMinutes() != null) stored.setDurationMinutes(entity.getDurationMinutes());

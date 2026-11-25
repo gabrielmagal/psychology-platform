@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
     FiCalendar, FiChevronDown, FiCreditCard, FiDollarSign, FiHome, FiLogOut, FiMenu, FiPackage,
-    FiArchive, FiShield, FiSun, FiUser, FiUsers, FiX,
+    FiArchive, FiAward, FiMessageSquare, FiShield, FiStar, FiSun, FiUser, FiUsers, FiX,
 } from "react-icons/fi";
 import styles from "./AppShell.module.css";
 import { brand, BrandMark } from "../../theme/brand";
@@ -20,6 +20,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
             items: [
                 { to: "/", label: "Início", icon: FiHome, end: true },
                 { to: "/agenda", label: "Agenda", icon: FiCalendar },
+                { to: "/profissionais", label: "Profissionais", icon: FiAward },
             ],
         },
         staff && {
@@ -27,7 +28,8 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
             items: [
                 { to: "/usuarios", label: "Pacientes e usuários", icon: FiUsers },
                 { to: "/sessions-package", label: "Pacotes de sessões", icon: FiPackage },
-            ],
+                isProfessional && { to: "/meu-perfil-publico", label: "Meu perfil público", icon: FiStar },
+            ].filter(Boolean),
         },
         staff && {
             label: "Financeiro",
@@ -46,6 +48,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
         isAdmin && {
             label: "Administração",
             items: [
+                { to: "/avaliacoes", label: "Comentários para aprovar", icon: FiMessageSquare },
                 { to: "/audit-log", label: "Auditoria", icon: FiShield },
                 { to: "/guarda", label: "Guarda de prontuários", icon: FiArchive },
             ],

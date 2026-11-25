@@ -294,7 +294,7 @@
 
 .modal {
   width: 100%;
-  max-width: 540px;
+  max-width: 680px;
   background: var(--surface-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);

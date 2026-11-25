@@ -72,9 +72,27 @@ public class ClinicExtrasController {
     }
 
     @GET
-    @Path("/agenda/{id}/evolution")
-    public Map<String, Object> evolution(@PathParam("id") UUID id) {
-        return agenda.evolution(tenant(), me(), id);
+    @Path("/agenda/{id}/record")
+    public Map<String, Object> record(@PathParam("id") UUID id) {
+        return agenda.record(tenant(), me(), id);
+    }
+
+    @PUT
+    @Path("/agenda/{id}/record")
+    public Map<String, Object> saveRecord(@PathParam("id") UUID id, Map<String, Object> body) {
+        return agenda.saveRecord(tenant(), me(), id, body);
+    }
+
+    @PUT
+    @Path("/agenda/{id}/record/sign")
+    public Map<String, Object> signRecord(@PathParam("id") UUID id) {
+        return agenda.signRecord(tenant(), me(), id);
+    }
+
+    @POST
+    @Path("/agenda/{id}/record/addendum")
+    public Map<String, Object> addAddendum(@PathParam("id") UUID id, Map<String, Object> body) {
+        return agenda.addAddendum(tenant(), me(), id, body == null ? null : text(body.get("text")));
     }
 
     @PUT

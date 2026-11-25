@@ -24,6 +24,10 @@ const DocumentPage = lazy(() => import("./components/pages/clinic/DocumentPage")
 const MoodDiaryPage = lazy(() => import("./components/pages/clinic/MoodDiaryPage"));
 const RetentionPage = lazy(() => import("./components/pages/clinic/RetentionPage"));
 const PaymentSettingsPage = lazy(() => import("./components/pages/payment/PaymentSettingsPage"));
+const ProfessionalsPage = lazy(() => import("./components/pages/directory/ProfessionalsPage"));
+const ProfessionalProfilePage = lazy(() => import("./components/pages/directory/ProfessionalProfilePage"));
+const MyPublicProfilePage = lazy(() => import("./components/pages/directory/MyPublicProfilePage"));
+const ReviewModerationPage = lazy(() => import("./components/pages/directory/ReviewModerationPage"));
 
 function PageFallback() {
     return <div className="ui-page"><Skeleton rows={6} height={22} /></div>;
@@ -78,6 +82,10 @@ function App({ keycloak, realm }) {
                                 <Route path="/retorno-pagamento" element={<RetornoPagamentoPage {...pageProps} />} />
                                 <Route path="/documento/:kind/:id" element={<DocumentPage {...pageProps} />} />
                                 <Route path="/perfil" element={<UserProfilePage {...pageProps} />} />
+                                <Route path="/profissionais" element={<ProfessionalsPage {...pageProps} />} />
+                                <Route path="/profissionais/:id" element={<ProfessionalProfilePage {...pageProps} />} />
+                                {isProfessional && <Route path="/meu-perfil-publico" element={<MyPublicProfilePage {...pageProps} />} />}
+                                {isAdmin && <Route path="/avaliacoes" element={<ReviewModerationPage {...pageProps} />} />}
                                 {isStaff && <Route path="/usuarios" element={<UserCrud {...pageProps} />} />}
                                 {isStaff && <Route path="/prontuario/:patientId" element={<PatientRecordPage {...pageProps} />} />}
                                 {isStaff && <Route path="/financeiro" element={<FinancePage {...pageProps} />} />}

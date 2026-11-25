@@ -6,27 +6,17 @@ import styles from "./Clinic.module.css";
 import { Alert } from "../../ui/Feedback";
 import { errorText } from "../../../utils/errors";
 import { formatDate, whatsappLink, STATUS_LABEL, MODALITY_LABEL } from "./clinicApi";
+import SessionRecordPanel from "./SessionRecordPanel";
+import ReviewForm from "../../ui/ReviewForm";
 
 /** Detalhes de uma sessão da agenda, com as ações de cada perfil. */
-export default function SessionDialog({ item, request, isPatient, patientChangeHours, onClose, onChanged }) {
+export default function SessionDialog({ item, request, isPatient, patientChangeHours, onClose, onChanged, onRecordSaved }) {
     const isStaff = !isPatient;
     const [mode, setMode] = useState("details"); // details | reschedule
-    const [evolution, setEvolution] = useState(null);
-    const [savingEvolution, setSavingEvolution] = useState(false);
-    const [rating, setRating] = useState({ value: 5, comment: "" });
     const [newDate, setNewDate] = useState(item.date);
     const [newTime, setNewTime] = useState(item.startTime || "09:00");
     const [slots, setSlots] = useState(null);
     const [busy, setBusy] = useState(false);
-
-    useEffect(() => {
-        if (!isStaff) return;
-        let cancelled = false;
-        request(`/clinic/agenda/${item.id}/evolution`)
-            .then((data) => { if (!cancelled) setEvolution(data?.evolution || ""); })
-            .catch(() => { if (!cancelled) setEvolution(""); });
-        return () => { cancelled = true; };
-    }, [isStaff, item.id, request]);
 
     // O paciente escolhe entre os horários livres do profissional naquele dia.
     useEffect(() => {
@@ -49,18 +39,6 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
             toast.error(errorText(err));
         } finally {
             setBusy(false);
-        }
-    };
-
-    const saveEvolution = async () => {
-        setSavingEvolution(true);
-        try {
-            await request(`/clinic/agenda/${item.id}/evolution`, { method: "PUT", body: { evolution } });
-            toast.success("Evolução salva.");
-        } catch (err) {
-            toast.error(errorText(err));
-        } finally {
-            setSavingEvolution(false);
         }
     };
 
@@ -94,7 +72,11 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                         <dl className={styles.details}>
                             {isStaff
                                 ? <><dt>Paciente</dt><dd>{item.patientName}</dd></>
-                                : <><dt>Profissional</dt><dd>{item.professionalName}</dd></>}
+                                : <><dt>Profissional</dt><dd>
+                                    {item.professionalId
+                                        ? <Link to={`/profissionais/${item.professionalId}`} onClick={onClose}>{item.professionalName}</Link>
+                                        : item.professionalName}
+                                </dd></>}
                             <dt>{item.singleSession ? "Tipo" : "Pacote"}</dt>
                             <dd>{item.singleSession ? "Sessão avulsa" : item.packageTitle || "—"}</dd>
                             <dt>Duração</dt><dd>{item.durationMinutes} min</dd>
@@ -147,41 +129,26 @@ export default function SessionDialog({ item, request, isPatient, patientChangeH
                             </Alert>
                         )}
 
-                        {isStaff && evolution !== null && (
-                            <div className={styles.form} style={{ marginTop: 18 }}>
-                                <label className={styles.field}>
-                                    Evolução da sessão
-                                    <textarea rows={5} value={evolution} onChange={(e) => setEvolution(e.target.value)}
-                                              placeholder="Registro do atendimento. Fica cifrado e só você tem acesso." />
-                                </label>
-                                <div>
-                                    <button className={styles.btnGhost} onClick={saveEvolution} disabled={savingEvolution}>
-                                        {savingEvolution ? "Salvando…" : "Salvar evolução"}
-                                    </button>
-                                </div>
-                            </div>
+                        {isStaff && item.status !== "CANCELADA" && (
+                            <section style={{ marginTop: 22 }}>
+                                <h3 className="ui-card-title">Registro da sessão</h3>
+                                <SessionRecordPanel sessionId={item.id} request={request} onSaved={onRecordSaved} />
+                            </section>
                         )}
 
                         {isPatient && item.status === "REALIZADA" && !item.rated && (
-                            <div className={styles.form} style={{ marginTop: 18 }}>
-                                <strong>Como foi esta sessão?</strong>
-                                <div className={styles.moods}>
-                                    {[1, 2, 3, 4, 5].map((n) => (
-                                        <button key={n} type="button" aria-label={`${n} de 5`}
-                                                className={`${styles.mood} ${rating.value >= n ? styles.moodSelected : ""}`}
-                                                onClick={() => setRating((r) => ({ ...r, value: n }))}>★</button>
-                                    ))}
-                                </div>
-                                <label className={styles.field}>
-                                    Comentário (opcional)
-                                    <textarea value={rating.comment} onChange={(e) => setRating((r) => ({ ...r, comment: e.target.value }))} />
-                                </label>
-                                <div>
-                                    <button className={styles.btn} disabled={busy}
-                                            onClick={() => act(`/clinic/agenda/${item.id}/rating`, "Obrigado pela avaliação!",
-                                                { body: { rating: rating.value, comment: rating.comment } })}>Enviar avaliação</button>
-                                </div>
-                            </div>
+                            <section style={{ marginTop: 22 }}>
+                                <ReviewForm
+                                    title="Como foi esta sessão?"
+                                    recommendQuestion={`Você recomendaria ${item.professionalName || "este profissional"}?`}
+                                    commentPlaceholder="O que funcionou bem e o que poderia ser diferente."
+                                    privacyNote="O profissional lê a sua avaliação sem saber que é sua."
+                                    consentLabel="Autorizo a exibição deste comentário no perfil do profissional, sem o meu nome"
+                                    consentHint="Só aparece se o profissional exibir avaliações e depois de a clínica aprovar. Evite detalhes que identifiquem você."
+                                    busy={busy}
+                                    onSubmit={(review) => act(`/clinic/agenda/${item.id}/rating`, "Obrigado pela avaliação!", { body: review })}
+                                />
+                            </section>
                         )}
                     </>
                 )}

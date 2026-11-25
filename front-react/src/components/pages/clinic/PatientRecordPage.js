@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FiDownload, FiFileText, FiPaperclip, FiTrash2 } from "react-icons/fi";
+import { FiDownload, FiFileText, FiLock, FiPaperclip, FiTrash2 } from "react-icons/fi";
 import styles from "./Clinic.module.css";
 import { Alert, EmptyState, ErrorState, Skeleton } from "../../ui/Feedback";
 import ConfirmDialog from "../../shared/dialog/ConfirmDialog";
 import { errorText } from "../../../utils/errors";
 import { saveBlob } from "../../../utils/fetchWithAuth";
 import { useApi, useDownload, formatDate, formatCpf, STATUS_LABEL, MOODS } from "./clinicApi";
+import SectionedNote from "../../ui/SectionedNote";
+import SessionRecordPanel, { RECORD_SECTIONS } from "./SessionRecordPanel";
 
 const FIELDS = [
     ["chiefComplaint", "Queixa principal"],
@@ -19,12 +21,11 @@ const FIELDS = [
     ["observations", "Observações"],
 ];
 
-const ANNOTATION_FIELDS = [
-    ["mainFeeling", "Sentimento principal"],
-    ["significantEvents", "Eventos significativos"],
-    ["currentPhase", "Fase atual"],
-    ["dominantThought", "Pensamento dominante"],
-    ["intervention", "Intervenção"],
+// Na linha do tempo o registro aparece inteiro: as seções, os adendos e, para quem escreveu, as notas privadas.
+const TIMELINE_SECTIONS = [
+    ...RECORD_SECTIONS,
+    { key: "addenda", label: "Adendos" },
+    { key: "privateNotes", label: "Notas privadas", private: true },
 ];
 
 const TABS = [
@@ -54,6 +55,7 @@ export default function PatientRecordPage(props) {
     const [record, setRecord] = useState(null);
     const [form, setForm] = useState({});
     const [timeline, setTimeline] = useState([]);
+    const [openRecord, setOpenRecord] = useState(null);
     const [moods, setMoods] = useState([]);
     const [attachments, setAttachments] = useState([]);
     const [documents, setDocuments] = useState([]);
@@ -84,6 +86,11 @@ export default function PatientRecordPage(props) {
     }, [request, patientId]);
 
     useEffect(() => { load(); }, [load]);
+
+    /** Só a linha do tempo: recarregar tudo fecharia o registro que a pessoa está escrevendo. */
+    const reloadTimeline = useCallback(() => {
+        request(`/clinic/patient-record/${patientId}/timeline`).then((sessions) => setTimeline(sessions || [])).catch(() => {});
+    }, [request, patientId]);
 
     const save = async (e) => {
         e.preventDefault();
@@ -183,7 +190,7 @@ export default function PatientRecordPage(props) {
                 <div className={styles.card}>
                     {timeline.length === 0 ? (
                         <EmptyState title="Nenhuma sessão registrada">
-                            As sessões agendadas aparecem aqui, com a evolução que você registrar em cada uma.
+                            As sessões agendadas aparecem aqui, com o registro que você fizer em cada uma.
                         </EmptyState>
                     ) : (
                         <div className={styles.timeline}>
@@ -192,20 +199,28 @@ export default function PatientRecordPage(props) {
                                     <strong>{formatDate(s.date)}{s.startTime ? ` às ${s.startTime}` : ""} — {s.title || "Sessão"}</strong>{" "}
                                     <span className={`${styles.badge} ${styles[`badge${s.status}`] || ""}`}>{STATUS_LABEL[s.status]}</span>
                                     {s.professionalName && <span className={styles.muted}> · {s.professionalName}</span>}
-                                    {s.evolution
-                                        ? <p className={styles.preserve}>{s.evolution}</p>
-                                        : s.status === "REALIZADA" && (
-                                            <p className={styles.muted}>Sem evolução registrada. Abra a sessão na agenda para escrever.</p>
+                                    {s.signedAt && <span className="ui-badge ui-badge--success" style={{ marginLeft: 8 }}><FiLock aria-hidden="true" /> Concluído</span>}
+                                    {s.riskAlert && <span className="ui-badge ui-badge--danger" style={{ marginLeft: 8 }}>Sinal de atenção</span>}
+                                    <div style={{ marginTop: 12 }}>
+                                        {openRecord === s.id ? (
+                                            <SessionRecordPanel sessionId={s.id} request={request} onSaved={reloadTimeline} />
+                                        ) : (
+                                            <SectionedNote
+                                                sections={TIMELINE_SECTIONS}
+                                                values={s}
+                                                readOnly
+                                                emptyText={s.status === "REALIZADA" ? "Sessão realizada sem registro." : "Sem registro."}
+                                            />
                                         )}
-                                    {s.summary && <p className={styles.preserve}><em>Resumo:</em> {s.summary}</p>}
-                                    {s.privateNotes && <p className={styles.preserve}><em>Notas privadas:</em> {s.privateNotes}</p>}
-                                    {s.annotations.map((a, i) => (
-                                        <dl key={i} className={styles.details}>
-                                            {ANNOTATION_FIELDS.filter(([key]) => a[key]).map(([key, label]) => (
-                                                <React.Fragment key={key}><dt>{label}</dt><dd>{a[key]}</dd></React.Fragment>
-                                            ))}
-                                        </dl>
-                                    ))}
+                                    </div>
+                                    {s.status !== "CANCELADA" && (
+                                        <div style={{ marginTop: 10 }}>
+                                            <button type="button" className="ui-btn ui-btn--sm"
+                                                    onClick={() => setOpenRecord(openRecord === s.id ? null : s.id)}>
+                                                {openRecord === s.id ? "Fechar" : record.readOnly || s.signedAt ? "Abrir registro" : RECORD_SECTIONS.some((section) => s[section.key]) ? "Editar registro" : "Escrever registro"}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

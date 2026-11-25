@@ -122,7 +122,8 @@ export default function AgendaPage({ keycloak, realm, onUnauthorized, onForbidde
                     {MODALITY_LABEL[item.modality]}
                     {item.status !== "AGENDADA" ? ` · ${STATUS_LABEL[item.status]}` : ""}
                     {item.status === "AGENDADA" && item.confirmedAt ? " · confirmada" : ""}
-                    {item.status === "REALIZADA" && isStaff && !item.hasEvolution ? " · sem evolução" : ""}
+                    {item.status === "REALIZADA" && isStaff && !item.hasRecord ? " · sem registro" : ""}
+                    {item.status === "REALIZADA" && isStaff && item.hasRecord && !item.recordSigned ? " · registro em aberto" : ""}
                 </span>
             )}
         </button>
@@ -270,6 +271,7 @@ export default function AgendaPage({ keycloak, realm, onUnauthorized, onForbidde
                     patientChangeHours={settings?.patientChangeHours || 24}
                     onClose={() => setSelected(null)}
                     onChanged={() => { setSelected(null); load(); }}
+                    onRecordSaved={load}
                 />
             )}
             {scheduling && (

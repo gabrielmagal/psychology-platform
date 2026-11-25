@@ -216,8 +216,8 @@ check("paciente vê o nome da psicóloga e não vê telefone",
 expect("paciente confirma presença", http("PUT", f"{API}/clinic/agenda/{session_id}/confirm", token=pat), 204)
 expect("paciente NÃO muda a situação", http("PUT", f"{API}/clinic/agenda/{session_id}/status/REALIZADA", token=pat), 403)
 expect("psicóloga marca como realizada", http("PUT", f"{API}/clinic/agenda/{session_id}/status/REALIZADA", token=psy), 204)
-expect("paciente avalia a sessão", http("PUT", f"{API}/clinic/agenda/{session_id}/rating", token=pat,
-                                         body={"rating": 5, "comment": "ótima"}), 204)
+expect("paciente avalia a sessão", http("PUT", f"{API}/clinic/agenda/{session_id}/rating", token=pat, body={
+    "rating": 5, "recommend": True, "comment": "Me senti acolhido desde a primeira sessão.", "allowPublicComment": True}), 204)
 doc = expect("declaração de comparecimento", http("GET", f"{API}/clinic/document/attendance/{session_id}", token=pat), 200)
 check("declaração traz CRP da psicóloga", doc["professional"].get("crp") == "06/123456", doc)
 
@@ -242,11 +242,14 @@ expect("psicóloga edita o pacote (PUT)", http("PUT", f"{API}/session-package/{p
     "id": pkg_id, "patient": {"id": pat_id}, "packageTitle": "Pacote E2E", "totalSessions": 5, "price": 400.00}), 200)
 count, _ = psql(f"select count(*) || '/' || max(total_sessions) from {REALM}.session_package where package_title = 'Pacote E2E'")
 check("editar altera o registro em vez de duplicar", count == "1/5", count)
-expect("psicóloga cria anotação na sessão", http("POST", f"{API}/annotation", token=psy, body={
+# Anotação no formato antigo (antes do registro estruturado): tem de continuar legível.
+expect("anotação no formato antigo ainda é aceita", http("POST", f"{API}/annotation", token=psy, body={
     "mainFeeling": "Alívio", "significantEvents": "Semana de provas", "currentPhase": "Inicial",
     "dominantThought": "Vou conseguir", "intervention": "Psicoeducação", "session": {"id": session_id}}), 200)
-timeline = expect("linha do tempo com anotação", http("GET", f"{API}/clinic/patient-record/{pat_id}/timeline", token=psy), 200)
-check("anotação aparece na linha do tempo", any(a.get("mainFeeling") == "Alívio" for s in timeline for a in s["annotations"]), timeline)
+timeline = expect("linha do tempo com anotação antiga", http("GET", f"{API}/clinic/patient-record/{pat_id}/timeline", token=psy), 200)
+old_note = next(i for i in timeline if i["id"] == session_id)
+check("anotação antiga aparece dentro do registro novo", old_note.get("interventions") == "Psicoeducação"
+      and old_note.get("demand") == "Semana de provas" and "Sentimento principal: Alívio" in (old_note.get("observations") or ""), old_note)
 edited = expect("admin edita o paciente (PUT)", http("PUT", f"{API}/user/{pat_id}", token=admin, body={
     "cpf": "90000000003", "firstName": "Paciente", "lastName": "Teste", "email": "teste.paciente@exemplo.com",
     "phoneNumber": "11900000003", "birthDate": "1990-05-10", "userType": "PACIENTE", "occupation": "Estudante",
@@ -338,11 +341,15 @@ check("mensagem manda falar com o profissional", "profissional" in str(too_late)
 expect("profissional remarca a qualquer momento", http("PUT", f"{API}/clinic/agenda/{late['created'][0]}/reschedule", token=psy,
        body={"date": str(monday + dt.timedelta(days=1)), "startTime": "10:00"}), 204)
 
-expect("profissional escreve a evolução", http("PUT", f"{API}/clinic/agenda/{session_id}/evolution", token=psy,
+expect("atalho antigo de evolução continua aceito", http("PUT", f"{API}/clinic/agenda/{session_id}/evolution", token=psy,
        body={"evolution": "Relatou melhora do sono."}), 204)
-expect("paciente NÃO lê a evolução", http("GET", f"{API}/clinic/agenda/{session_id}/evolution", token=pat), 403)
+expect("paciente NÃO lê o registro da sessão", http("GET", f"{API}/clinic/agenda/{session_id}/record", token=pat), 403)
 evo, _ = psql(f"select evolution from {REALM}.session_info where id = '{session_id}'")
 check("evolução fica cifrada no banco", evo.startswith("enc:v1:"), evo[:30])
+converted = expect("registro depois do primeiro salvamento", http("GET", f"{API}/clinic/agenda/{session_id}/record", token=psy), 200)
+left, _ = psql(f"select count(*) from {REALM}.annotation where session_id = '{session_id}'")
+check("anotação antiga foi convertida para o registro novo, sem perder texto",
+      left == "0" and converted["interventions"] == "Psicoeducação" and converted["evolution"] == "Relatou melhora do sono.", (left, converted))
 
 single = expect("sessão avulsa com valor próprio", http("POST", f"{API}/clinic/agenda/single", token=psy, body={
     "patientId": pat_id, "price": "180.00", "date": str(monday + dt.timedelta(days=2)), "startTime": "14:00"}), 200)
@@ -418,6 +425,75 @@ saved_profile = expect("paciente salva a foto de perfil", http("PUT", f"{API}/us
 check("foto volta gravada", saved_profile.get("profileImage") == PNG, str(saved_profile.get("profileImage"))[:30])
 again_profile = expect("foto continua lá ao recarregar", http("GET", f"{API}/user/keycloak", token=pat), 200)
 check("foto persistida no banco", again_profile.get("profileImage") == PNG, str(again_profile.get("profileImage"))[:30])
+
+# ------------------------------------------- registro clínico da sessão (CFP 001/2009)
+rec_id = single["created"][0]
+RECORD = {"demand": "Dificuldade para dormir", "observations": "Ansioso, fala acelerada",
+          "interventions": "Higiene do sono", "evolution": "Boa adesão", "plan": "Diário do sono por 7 dias",
+          "riskAlert": True, "privateNotes": "hipótese a confirmar em supervisão"}
+saved_rec = expect("profissional escreve o registro estruturado", http("PUT", f"{API}/clinic/agenda/{rec_id}/record", token=psy, body=RECORD), 200)
+check("registro volta com as cinco seções", all(saved_rec.get(k) == RECORD[k] for k in ("demand", "observations", "interventions", "evolution", "plan")), saved_rec)
+raw_rec, _ = psql(f"select demand || '|' || plan || '|' || private_notes from {REALM}.session_info where id = '{rec_id}'")
+check("seções e nota privada cifradas no banco", all(part.startswith("enc:v1:") for part in raw_rec.split("|")), raw_rec[:40])
+expect("outro profissional NÃO lê o registro", http("GET", f"{API}/clinic/agenda/{rec_id}/record", token=psy2), 403)
+expect("administrador NÃO escreve o registro", http("PUT", f"{API}/clinic/agenda/{rec_id}/record", token=admin, body={"demand": "x"}), 403)
+admin_rec = expect("administrador lê o registro", http("GET", f"{API}/clinic/agenda/{rec_id}/record", token=admin), 200)
+check("mas não lê a nota privada do profissional", admin_rec.get("demand") == RECORD["demand"] and "privateNotes" not in admin_rec, admin_rec)
+expect("adendo só depois de concluir", http("POST", f"{API}/clinic/agenda/{rec_id}/record/addendum", token=psy, body={"text": "x"}), 409)
+signed_rec = expect("profissional conclui o registro", http("PUT", f"{API}/clinic/agenda/{rec_id}/record/sign", token=psy), 200)
+check("registro concluído fica travado", signed_rec.get("signedAt") and signed_rec.get("canEdit") is False, signed_rec)
+expect("registro concluído não é alterado", http("PUT", f"{API}/clinic/agenda/{rec_id}/record", token=psy, body={"demand": "outra"}), 409)
+added = expect("complemento entra como adendo datado", http("POST", f"{API}/clinic/agenda/{rec_id}/record/addendum", token=psy,
+               body={"text": "Paciente avisou que iniciou medicação."}), 200)
+check("adendo gravado sem mexer no texto", added["addenda"].endswith("iniciou medicação.") and added["demand"] == RECORD["demand"], added)
+tl = expect("linha do tempo traz o registro novo", http("GET", f"{API}/clinic/patient-record/{pat_id}/timeline", token=psy), 200)
+tl_item = next(i for i in tl if i["id"] == rec_id)
+check("linha do tempo mostra seções, alerta e conclusão", tl_item["plan"] == RECORD["plan"] and tl_item["riskAlert"] and tl_item["signedAt"], tl_item)
+form_meta = expect("formulário genérico da sessão", http("GET", f"{API}/session/entity-description", token=psy), 200)
+check("o formulário genérico não edita mais o texto clínico",
+      not any(k in str(form_meta) for k in ('"evolution"', "'evolution'", "privateNotes", "annotation")), str(form_meta)[:200])
+
+# ------------------------------------------------- perfil público e avaliações
+BIO = "Atendo adultos e adolescentes com foco em ansiedade e sono, em sessões de 50 minutos, online e presencial."
+expect("paciente NÃO edita perfil público", http("PUT", f"{API}/directory/profile", token=pat, body={"bio": BIO}), 403)
+expect("publicar sem texto de apresentação é recusado", http("PUT", f"{API}/directory/profile", token=psy, body={"published": True, "bio": "curto"}), 400)
+draft = expect("profissional salva rascunho", http("PUT", f"{API}/directory/profile", token=psy, body={
+    "headline": "Psicóloga clínica · TCC", "bio": BIO, "specialties": ["Ansiedade", "Sono"], "approaches": ["Terapia Cognitivo-Comportamental"],
+    "audiences": ["Adultos", "Adolescentes"], "languages": ["Português"], "education": "Graduação em Psicologia — USP, 2012",
+    "practicingSince": 2013, "sessionMinutes": 50, "sessionPrice": "180.00", "attendsOnline": True, "attendsInPerson": True,
+    "city": "Barueri, SP", "showReviews": False, "published": False}), 200)
+check("rascunho não publicado", draft["published"] is False and draft["specialties"] == ["Ansiedade", "Sono"], draft)
+hidden = expect("paciente lista profissionais", http("GET", f"{API}/directory/professionals", token=pat), 200)
+check("rascunho não aparece para o paciente", all(c["id"] != psy_id for c in hidden), [c["name"] for c in hidden])
+expect("nem abre o rascunho", http("GET", f"{API}/directory/professionals/{psy_id}", token=pat), 404)
+admin_list = expect("administrador lista profissionais", http("GET", f"{API}/directory/professionals", token=admin), 200)
+check("administrador vê o rascunho", any(c["id"] == psy_id and not c["published"] for c in admin_list), admin_list)
+expect("profissional publica o perfil", http("PUT", f"{API}/directory/profile", token=psy, body=dict(draft, published=True)), 200)
+listed = expect("paciente busca por área de atuação", http("GET", f"{API}/directory/professionals?search=ansiedade", token=pat), 200)
+card = next((c for c in listed if c["id"] == psy_id), None)
+check("perfil publicado aparece com CRP", card is not None and card["registration"] == "06/123456", listed)
+check("sem nota enquanto o profissional não escolher mostrar", card is not None and "reviews" not in card, card)
+seen = expect("paciente abre o perfil", http("GET", f"{API}/directory/professionals/{psy_id}", token=pat), 200)
+check("perfil traz apresentação e não expõe dados do cadastro",
+      seen["bio"] == BIO and not any(k in seen for k in ("cpf", "email", "phoneNumber")), list(seen))
+
+mine_reviews = expect("profissional vê as avaliações recebidas", http("GET", f"{API}/directory/reviews", token=psy), 200)
+check("com nota e recomendação", mine_reviews["summary"]["count"] >= 1 and mine_reviews["summary"]["recommendPercent"] == 100, mine_reviews["summary"])
+check("sem saber quem avaliou", all("authorName" not in i and "authorId" not in i for i in mine_reviews["items"]), mine_reviews["items"][:1])
+expect("outro profissional NÃO vê as avaliações dela", http("GET", f"{API}/directory/reviews?professionalId={psy_id}", token=psy2), 403)
+expect("paciente NÃO vê a fila de moderação", http("GET", f"{API}/directory/reviews/moderation", token=pat), 403)
+queue = expect("administrador vê a fila de moderação", http("GET", f"{API}/directory/reviews/moderation", token=admin), 200)
+pending = next((q for q in queue if q["subjectId"] == psy_id), None)
+check("comentário autorizado pelo paciente aguarda aprovação", pending is not None and pending["authorName"] == "Paciente Teste", queue)
+expect("profissional NÃO aprova o próprio comentário", http("PUT", f"{API}/directory/reviews/{pending['id']}/publish", token=psy), 403)
+expect("administrador aprova o comentário", http("PUT", f"{API}/directory/reviews/{pending['id']}/publish", token=admin), 204)
+still = expect("perfil sem avaliações ligadas", http("GET", f"{API}/directory/professionals/{psy_id}", token=pat), 200)
+check("comentário aprovado continua oculto se o profissional não mostra avaliações", "reviews" not in still and "comments" not in still, list(still))
+expect("profissional liga a exibição das avaliações", http("PUT", f"{API}/directory/profile", token=psy, body=dict(draft, published=True, showReviews=True)), 200)
+opened = expect("paciente abre o perfil com avaliações", http("GET", f"{API}/directory/professionals/{psy_id}", token=pat), 200)
+check("nota e comentário aprovado aparecem", opened["reviews"]["count"] >= 1 and len(opened["comments"]) == 1, opened.get("comments"))
+check("comentário público é anônimo", not any(k in opened["comments"][0] for k in ("authorId", "authorName", "id")), opened["comments"][0])
+expect("rota antiga de avaliação sem verificação não existe mais", http("POST", f"{API}/session-rating", token=pat, body={"rating": 1}), 404)
 
 # -------------------------------------------------------------------- painel
 for label, token in (("admin", admin), ("psicóloga", psy), ("paciente", pat)):

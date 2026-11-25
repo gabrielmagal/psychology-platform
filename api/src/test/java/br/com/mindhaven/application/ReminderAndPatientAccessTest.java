@@ -206,13 +206,15 @@ class ReminderAndPatientAccessTest {
         sessionForm.setTitle("Sessão editada");
         sessionForm.setDateSession(when.toLocalDate());
         sessionForm.setStartTime(when.toLocalTime());
-        sessionForm.setSummary("Resumo");
         sessions.update(tenant, professional, sessionForm);
 
         var edited = clinic.timeline(tenant, professional, patient.getId()).stream()
                 .filter(i -> sessionId.equals(i.get("id"))).findFirst().orElseThrow();
         assertEquals("Sessão editada", edited.get("title"));
-        assertEquals(1, ((List<?>) edited.get("annotations")).size(), "a anotação clínica continua lá");
+        // A anotação no formato antigo não se perde na edição: aparece dentro do registro novo.
+        assertEquals("Psicoeducação", edited.get("interventions"));
+        assertEquals("Semana de provas", edited.get("demand"));
+        assertTrue(edited.get("observations").toString().contains("Sentimento principal: Alívio"));
 
         // Mover a sessão para cima de outra continua bloqueado na edição.
         sessionForm.setDateSession(when.plusDays(7).toLocalDate());

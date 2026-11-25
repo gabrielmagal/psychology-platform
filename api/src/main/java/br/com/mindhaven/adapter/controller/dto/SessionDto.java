@@ -55,25 +55,13 @@ public class SessionDto extends BaseDto {
     @IShowInTable(value = false)
     private LocalDateTime remindedAt;
 
-    @ILabel("Título")
+    @ILabel("Assunto")
     @IShowInForm
     @IShowInTable
     private String title;
 
-    @ILabel("Evolução")
-    @IShowInForm
-    @IMultiline(rows = 8)
-    private String evolution;
-
-    @ILabel("Resumo")
-    @IShowInForm
-    @IMultiline(rows = 3)
-    private String summary;
-
-    @ILabel("Notas privadas")
-    @IShowInForm
-    @IMultiline(rows = 4)
-    private String privateNotes;
+    // O registro clínico (demanda, observações, intervenções, evolução, plano) não passa por
+    // este formulário: tem tela própria, com conclusão e adendos. Ver SessionRecord.
 
     @ILabel("Presença Confirmada")
     @IShowInForm
@@ -87,9 +75,4 @@ public class SessionDto extends BaseDto {
     @ManyToOne
     private SessionPackageDto sessionPackage;
 
-    @ILabel("Anotações")
-    @IShowInForm(value = false)
-    @IShowInTable(value = false)
-    @IManageAsSubEntity(label = "Anotações")
-    private List<AnnotationDto> annotation = new ArrayList<>();
 }

@@ -77,7 +77,9 @@ public class ClinicController {
     @Path("/agenda/{id}/rating")
     public void rate(@PathParam("id") UUID id, Map<String, Object> body) {
         Integer rating = integer(body.get("rating"));
-        clinic.rate(tenant(), me(), id, rating == null ? 0 : rating, string(body.get("comment")));
+        Object recommend = body.get("recommend");
+        clinic.rate(tenant(), me(), id, rating == null ? 0 : rating, string(body.get("comment")),
+                recommend instanceof Boolean answer ? answer : null, Boolean.TRUE.equals(body.get("allowPublicComment")));
     }
 
     // -------------------------------------------------------------- prontuário
