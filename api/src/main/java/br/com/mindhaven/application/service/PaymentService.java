@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class PaymentService extends AbstractCrudService<PaymentEntity> {
+public class PaymentService extends AppCrudService<PaymentEntity> {
     @Inject
     PaymentUseCase paymentUseCase;
 

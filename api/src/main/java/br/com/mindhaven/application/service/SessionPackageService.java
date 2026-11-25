@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class SessionPackageService extends AbstractCrudService<SessionPackageEntity> {
+public class SessionPackageService extends AppCrudService<SessionPackageEntity> {
     @Inject
     SessionPackageUseCase sessionUseCase;
 

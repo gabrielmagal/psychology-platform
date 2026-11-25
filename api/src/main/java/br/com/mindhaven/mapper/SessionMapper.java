@@ -1,5 +1,7 @@
 package br.com.mindhaven.mapper;
 
+import core.mapper.BaseMapper;
+
 import br.com.mindhaven.adapter.controller.dto.SessionDto;
 import br.com.mindhaven.domain.entity.SessionEntity;
 import org.mapstruct.Mapper;

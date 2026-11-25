@@ -6,7 +6,6 @@ import br.com.mindhaven.domain.entity.SessionEntity;
 import br.com.mindhaven.domain.entity.SessionPackageEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
 import br.com.mindhaven.domain.entity.enums.UserType;
-import br.com.mindhaven.infrastructure.persistence.AnnotationRepositoryImpl;
 import br.com.mindhaven.domain.entity.AnnotationEntity;
 import core.repository.dao.GenericDao;
 import core.service.model.Filter;
@@ -40,9 +39,6 @@ class SessionOwnershipTest {
 
     @Inject
     SessionUseCase sessionUseCase;
-
-    @Inject
-    AnnotationRepositoryImpl annotationRepository;
 
     private static UserEntity psicologoDono;
     private static UserEntity psicologoIntruso;
@@ -136,30 +132,5 @@ class SessionOwnershipTest {
         assertEquals(SessionService.class,
                 SessionService.class.getMethod("filteredFindPaged", Filter.class, int.class, int.class)
                         .getDeclaringClass());
-    }
-
-    @Test
-    @DisplayName("anotações: visibilidade aplicada no banco para profissional e paciente")
-    void annotationVisibilityInDatabase() {
-        AnnotationEntity anotacao = AnnotationEntity.builder()
-                .mainFeeling("ansiedade")
-                .significantEvents("evento")
-                .currentPhase("fase 1")
-                .dominantThought("pensamento")
-                .intervention("intervenção")
-                .session(sessao)
-                .build();
-        dao.update(TENANT, anotacao);
-
-        Filter filter = new Filter();
-        filter.setFilterParams(new ArrayList<>());
-
-        assertEquals(1, annotationRepository.countFilteredComPermissao(TENANT, psicologoDono, filter));
-        assertEquals(1, annotationRepository.countFilteredComPermissao(TENANT, paciente, filter));
-        assertEquals(0, annotationRepository.countFilteredComPermissao(TENANT, psicologoIntruso, filter));
-
-        List<AnnotationEntity> doIntruso =
-                annotationRepository.filteredFindPagedComPermissao(TENANT, psicologoIntruso, filter, 0, 10);
-        assertTrue(doIntruso.isEmpty());
     }
 }

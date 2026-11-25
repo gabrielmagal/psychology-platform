@@ -1,6 +1,6 @@
 package br.com.mindhaven.domain.entity;
 
-import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import core.audit.AuditListener;
 import br.com.mindhaven.domain.entity.enums.PaymentMethod;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;

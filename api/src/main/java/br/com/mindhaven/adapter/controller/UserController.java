@@ -2,7 +2,7 @@ package br.com.mindhaven.adapter.controller;
 
 import br.com.mindhaven.application.service.UserService;
 import br.com.mindhaven.adapter.controller.dto.UserDto;
-import br.com.mindhaven.mapper.BaseMapper;
+import core.mapper.BaseMapper;
 import br.com.mindhaven.domain.entity.UserEntity;
 import core.controller.AbstractBaseController;
 import jakarta.inject.Inject;

@@ -1,6 +1,6 @@
 package br.com.mindhaven.domain.entity;
 
-import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import core.audit.AuditListener;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import core.notes.ISensitive;
@@ -19,6 +19,9 @@ import org.hibernate.annotations.BatchSize;
 @Builder
 @EntityListeners(AuditListener.class)
 public class AnnotationEntity extends BaseEntity {
+    // Formato antigo, só de leitura: o registro da sessão hoje é o de SessionRecord. Esta
+    // entidade existe para que anotações gravadas antes continuem aparecendo e sejam
+    // convertidas no primeiro salvamento. Não há mais rota nem tela que crie uma.
 
     // O conteúdo desta entidade é registro clínico do paciente por inteiro. A auditoria
     // registra que houve alteração, não o que foi escrito.

@@ -1,7 +1,7 @@
 package br.com.mindhaven.application.service;
 
 import br.com.mindhaven.application.usecase.interfaces.AuditLogUseCase;
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 import core.service.AbstractCrudService;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class AuditLogService extends AbstractCrudService<AuditLogEntity> {
+public class AuditLogService extends AppCrudService<AuditLogEntity> {
     @Inject
     AuditLogUseCase auditLogUseCase;
 

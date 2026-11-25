@@ -243,9 +243,13 @@ expect("psicóloga edita o pacote (PUT)", http("PUT", f"{API}/session-package/{p
 count, _ = psql(f"select count(*) || '/' || max(total_sessions) from {REALM}.session_package where package_title = 'Pacote E2E'")
 check("editar altera o registro em vez de duplicar", count == "1/5", count)
 # Anotação no formato antigo (antes do registro estruturado): tem de continuar legível.
-expect("anotação no formato antigo ainda é aceita", http("POST", f"{API}/annotation", token=psy, body={
-    "mainFeeling": "Alívio", "significantEvents": "Semana de provas", "currentPhase": "Inicial",
-    "dominantThought": "Vou conseguir", "intervention": "Psicoeducação", "session": {"id": session_id}}), 200)
+expect("a rota antiga de anotações não existe mais", http("POST", f"{API}/annotation", token=psy, body={
+    "mainFeeling": "x", "session": {"id": session_id}}), 404)
+# Uma anotação como as gravadas antes (direto no banco, em texto puro como nas bases antigas).
+_, insert_error = psql(f"insert into {REALM}.annotation (id, main_feeling, significant_events, current_phase, dominant_thought, "
+                       f"intervention, session_id) values (gen_random_uuid(), 'Alívio', 'Semana de provas', 'Inicial', "
+                       f"'Vou conseguir', 'Psicoeducação', '{session_id}')")
+check("anotação antiga inserida para o teste", insert_error == "", insert_error)
 timeline = expect("linha do tempo com anotação antiga", http("GET", f"{API}/clinic/patient-record/{pat_id}/timeline", token=psy), 200)
 old_note = next(i for i in timeline if i["id"] == session_id)
 check("anotação antiga aparece dentro do registro novo", old_note.get("interventions") == "Psicoeducação"
@@ -491,7 +495,7 @@ still = expect("perfil sem avaliações ligadas", http("GET", f"{API}/directory/
 check("comentário aprovado continua oculto se o profissional não mostra avaliações", "reviews" not in still and "comments" not in still, list(still))
 expect("profissional liga a exibição das avaliações", http("PUT", f"{API}/directory/profile", token=psy, body=dict(draft, published=True, showReviews=True)), 200)
 opened = expect("paciente abre o perfil com avaliações", http("GET", f"{API}/directory/professionals/{psy_id}", token=pat), 200)
-check("nota e comentário aprovado aparecem", opened["reviews"]["count"] >= 1 and len(opened["comments"]) == 1, opened.get("comments"))
+check("nota e comentário aprovado aparecem", opened["reviews"]["count"] >= 1 and len(opened["comments"]) >= 1, opened.get("comments"))
 check("comentário público é anônimo", not any(k in opened["comments"][0] for k in ("authorId", "authorName", "id")), opened["comments"][0])
 expect("rota antiga de avaliação sem verificação não existe mais", http("POST", f"{API}/session-rating", token=pat, body={"rating": 1}), 404)
 

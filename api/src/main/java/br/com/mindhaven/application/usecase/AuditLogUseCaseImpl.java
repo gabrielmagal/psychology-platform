@@ -1,5 +1,7 @@
 package br.com.mindhaven.application.usecase;
 
+import core.audit.AuditLogEntity;
+
 import br.com.mindhaven.application.usecase.interfaces.AuditLogUseCase;
 import br.com.mindhaven.domain.entity.*;
 import br.com.mindhaven.domain.repository.AuditLogRepository;

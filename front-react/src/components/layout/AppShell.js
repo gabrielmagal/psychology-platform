@@ -48,7 +48,7 @@ function buildMenu({ isAdmin, isProfessional, isPatient }) {
         isAdmin && {
             label: "Administração",
             items: [
-                { to: "/avaliacoes", label: "Comentários para aprovar", icon: FiMessageSquare },
+                { to: "/avaliacoes", label: "Avaliações", icon: FiMessageSquare },
                 { to: "/audit-log", label: "Auditoria", icon: FiShield },
                 { to: "/guarda", label: "Guarda de prontuários", icon: FiArchive },
             ],

@@ -1,6 +1,6 @@
 package br.com.mindhaven.infrastructure.persistence;
 
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 import br.com.mindhaven.domain.repository.AuditLogRepository;
 import core.repository.dao.GenericDao;
 import jakarta.enterprise.context.ApplicationScoped;

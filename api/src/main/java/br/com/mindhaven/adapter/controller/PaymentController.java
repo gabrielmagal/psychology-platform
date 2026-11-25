@@ -2,7 +2,7 @@ package br.com.mindhaven.adapter.controller;
 
 import br.com.mindhaven.application.service.PaymentService;
 import br.com.mindhaven.adapter.controller.dto.PaymentDto;
-import br.com.mindhaven.mapper.BaseMapper;
+import core.mapper.BaseMapper;
 import br.com.mindhaven.domain.entity.PaymentEntity;
 import core.controller.AbstractBaseController;
 import jakarta.inject.Inject;

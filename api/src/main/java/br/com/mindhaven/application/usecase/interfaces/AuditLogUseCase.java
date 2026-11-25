@@ -1,6 +1,6 @@
 package br.com.mindhaven.application.usecase.interfaces;
 
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 import br.com.mindhaven.domain.entity.UserEntity;
 import core.service.model.Filter;
 

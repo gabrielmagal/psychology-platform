@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <!--
+    Reator do repositório: compila os módulos reaproveitáveis (modules/) e a aplicação (api/)
+    de uma vez. Não é pai de ninguém: a aplicação e os módulos têm seus próprios poms, para
+    que os módulos possam ser publicados e consumidos sem este arquivo.
+  -->
+  <groupId>br.com.mindhaven</groupId>
+  <artifactId>psychology-platform</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <modules>
+    <module>modules</module>
+    <module>api</module>
+  </modules>
+</project>

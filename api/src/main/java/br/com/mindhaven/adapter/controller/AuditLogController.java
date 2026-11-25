@@ -2,8 +2,8 @@ package br.com.mindhaven.adapter.controller;
 
 import br.com.mindhaven.application.service.AuditLogService;
 import br.com.mindhaven.adapter.controller.dto.AuditLogDto;
-import br.com.mindhaven.domain.entity.AuditLogEntity;
-import br.com.mindhaven.mapper.BaseMapper;
+import core.audit.AuditLogEntity;
+import core.mapper.BaseMapper;
 import core.controller.AbstractBaseController;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;

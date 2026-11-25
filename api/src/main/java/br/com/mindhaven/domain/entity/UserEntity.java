@@ -1,10 +1,11 @@
 package br.com.mindhaven.domain.entity;
 
-import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import core.audit.AuditListener;
 import br.com.mindhaven.domain.entity.enums.UserType;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
-import core.repository.model.BaseEntity;
+import core.user.BaseUserEntity;
+import lombok.experimental.SuperBuilder;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.*;
@@ -14,41 +15,17 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "user_info")
 // Permite ao Hibernate carregar os usuários referenciados por uma página inteira de
 // pacotes/sessões em poucas consultas, em vez de uma por registro.
 @BatchSize(size = 32)
-@Builder
+@SuperBuilder
 @EntityListeners(AuditListener.class)
-public class UserEntity extends BaseEntity {
-
-    @Column(name = "registered_by_keycloak_id")
-    private String registeredByKeycloakId;
-
-    @Column(name = "keycloak_id", unique = true)
-    private String keycloakId;
-
-    @Column(name = "cpf", nullable = false, unique = true, length = 11)
-    private String cpf;
-
-    @Column(name = "first_name", nullable = false)
-    private String firstName;
-
-    @Column(name = "last_name", nullable = false)
-    private String lastName;
-
-    @Email
-    @Column(name = "email", nullable = false)
-    private String email;
-
-    @Column(name = "phone_number", nullable = false)
-    private String phoneNumber;
-
-    @Column(name = "birth_date", nullable = false)
-    private LocalDate birthDate;
+// O que é de qualquer usuário (nome, CPF, contato, conta) está em BaseUserEntity, no módulo
+// platform-user. Aqui fica só o que este sistema acrescenta.
+public class UserEntity extends BaseUserEntity {
 
     /** Registro no Conselho Regional de Psicologia — sai nos recibos e declarações. */
     @Column(name = "crp", length = 30)
@@ -72,16 +49,6 @@ public class UserEntity extends BaseEntity {
 
     @Column(name = "guardian_phone", length = 50)
     private String guardianPhone;
-
-    @Transient
-    private String profileImage;
-
-    /**
-     * Senha provisória recém-gerada. Nunca é gravada: existe só na resposta de quem acabou de
-     * cadastrar o usuário (ou de pedir uma senha nova), para ser entregue à pessoa.
-     */
-    @Transient
-    private String temporaryPassword;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false)

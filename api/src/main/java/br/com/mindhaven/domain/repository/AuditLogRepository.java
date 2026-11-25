@@ -1,6 +1,6 @@
 package br.com.mindhaven.domain.repository;
 
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 
 import java.util.List;
 import java.util.UUID;

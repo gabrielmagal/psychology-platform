@@ -34,7 +34,13 @@ public class SessionPackagePayments implements PayableSource {
     SessionPackageUseCase packages;
 
     @Override
-    public Payable load(String tenant, UserEntity user, UUID payableId) {
+    public boolean canReceive(core.user.BaseUserEntity user) {
+        return ((UserEntity) user).getUserType() != br.com.mindhaven.domain.entity.enums.UserType.PACIENTE;
+    }
+
+    @Override
+    public Payable load(String tenant, core.user.BaseUserEntity account, UUID payableId) {
+        UserEntity user = (UserEntity) account;
         // Mesma regra da tela de pacotes: admin, profissional dono ou o próprio paciente.
         return toPayable(packages.findById(tenant, user, payableId));
     }

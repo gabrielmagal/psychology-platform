@@ -25,3 +25,6 @@ replay_pid*
 
 # Cópias de segurança geradas pelo serviço postgres-backup
 docker/backups/
+
+# Saída de build dos módulos e da aplicação
+target/

@@ -16,57 +16,8 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-public class UserDto extends BaseDto {
-
-    private String keycloakId;
-    private String registeredByKeycloakId;
-
-    /** Só vem preenchida na resposta do cadastro: é mostrada uma única vez a quem cadastrou. */
-    private String temporaryPassword;
-
-    @ILabel("CPF")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
-    @IGroup("Dados pessoais")
-    private String cpf;
-
-    @ILabel("Nome")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
-    @IGroup("Dados pessoais")
-    private String firstName;
-
-    @ILabel("Sobrenome")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
-    @IGroup("Dados pessoais")
-    private String lastName;
-
-    @ILabel("E-mail")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
-    @Email
-    @IGroup("Contato")
-    private String email;
-
-    @ILabel("Telefone")
-    @IShowInForm
-    @IShowInTable
-    @NotNull
-    @IGroup("Contato")
-    private String phoneNumber;
-
-    @ILabel("Data de Nascimento")
-    @IShowInForm
-    @IShowInTable(value = false)
-    @NotNull
-    @IGroup("Dados pessoais")
-    private LocalDate birthDate;
+// Nome, CPF, contato e foto vêm de BaseUserDto (módulo platform-user).
+public class UserDto extends core.user.BaseUserDto {
 
     @ILabel("Registro profissional (CRP)")
     @IShowInForm
@@ -102,13 +53,6 @@ public class UserDto extends BaseDto {
     @IShowInForm
     @IGroup("Responsável legal (menor de idade)")
     private String guardianPhone;
-
-    @ILabel("Imagem")
-    @IShowInForm
-    @IShowInTable(value = false)
-    @IPhoto
-    @IGroup("Dados pessoais")
-    private String profileImage;
 
     @ILabel("Perfil")
     @IShowInForm

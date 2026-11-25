@@ -24,7 +24,7 @@ import java.util.UUID;
  * {@code AnnotationService} e {@code PaymentService}.
  */
 @ApplicationScoped
-public class SessionService extends AbstractCrudService<SessionEntity> {
+public class SessionService extends AppCrudService<SessionEntity> {
     @Inject
     SessionUseCase sessionUseCase;
 

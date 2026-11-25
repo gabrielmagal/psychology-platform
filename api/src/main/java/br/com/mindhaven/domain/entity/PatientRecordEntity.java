@@ -1,6 +1,6 @@
 package br.com.mindhaven.domain.entity;
 
-import br.com.mindhaven.infrastructure.interceptor.AuditListener;
+import core.audit.AuditListener;
 import jakarta.persistence.Convert;
 import core.notes.ISensitive;
 import core.repository.model.BaseEntity;

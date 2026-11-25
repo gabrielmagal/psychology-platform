@@ -1,7 +1,9 @@
 package br.com.mindhaven.mapper;
 
+import core.mapper.BaseMapper;
+
 import br.com.mindhaven.adapter.controller.dto.AuditLogDto;
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "jakarta")

@@ -1,6 +1,6 @@
 package br.com.mindhaven.infrastructure.interceptor;
 
-import br.com.mindhaven.domain.entity.AuditLogEntity;
+import core.audit.AuditLogEntity;
 import br.com.mindhaven.domain.entity.SessionEntity;
 import core.repository.dao.GenericDao;
 import io.quarkus.test.junit.QuarkusTest;

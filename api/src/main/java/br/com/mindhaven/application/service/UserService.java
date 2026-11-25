@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 @ApplicationScoped
-public class UserService extends AbstractCrudService<UserEntity> {
+public class UserService extends AppCrudService<UserEntity> implements core.user.UserLookup {
 
     private static final Logger LOG = Logger.getLogger(UserService.class);
 
@@ -92,6 +92,8 @@ public class UserService extends AbstractCrudService<UserEntity> {
         return userUseCase.countFiltered(getTenant(), getCurrentLoggedUser(), filter);
     }
 
+    /** É por aqui que o módulo de usuário descobre quem está logado (com a foto junto). */
+    @Override
     public UserEntity findByKeycloakId(String tenant, String keycloakId) {
         return userUseCase.findByKeycloakId(tenant, keycloakId);
     }

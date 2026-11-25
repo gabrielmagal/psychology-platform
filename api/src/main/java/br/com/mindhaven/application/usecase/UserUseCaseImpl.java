@@ -4,7 +4,7 @@ import br.com.mindhaven.application.usecase.interfaces.UserUseCase;
 import br.com.mindhaven.domain.entity.UserEntity;
 import br.com.mindhaven.domain.entity.enums.UserType;
 import br.com.mindhaven.domain.repository.UserRepository;
-import core.service.KeycloakServiceImpl;
+import core.user.UserAccounts;
 import core.service.model.Filter;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -15,7 +15,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class UserUseCaseImpl implements UserUseCase {
     private final UserRepository userRepository;
-    private final KeycloakServiceImpl keycloakService;
+    private final UserAccounts accounts;
 
     @jakarta.inject.Inject
     br.com.mindhaven.application.service.RecordsService records;
@@ -23,12 +23,9 @@ public class UserUseCaseImpl implements UserUseCase {
     @jakarta.inject.Inject
     br.com.mindhaven.application.service.PatientAccess access;
 
-    @jakarta.inject.Inject
-    jakarta.persistence.EntityManager em;
-
-    public UserUseCaseImpl(UserRepository userRepository, KeycloakServiceImpl keycloakService) {
+    public UserUseCaseImpl(UserRepository userRepository, UserAccounts accounts) {
         this.userRepository = userRepository;
-        this.keycloakService = keycloakService;
+        this.accounts = accounts;
     }
 
     @Override
@@ -62,28 +59,8 @@ public class UserUseCaseImpl implements UserUseCase {
 
     /** Cria a conta de acesso e o cadastro, e devolve junto a senha provisória de primeiro acesso. */
     private UserEntity createWithAccount(String tenant, UserEntity loggedUser, UserEntity entity, Set<String> roles) {
-        String userId = keycloakService.createUser(tenant, entity, roles);
-        String temporaryPassword = entity.getTemporaryPassword();
-        entity.setKeycloakId(userId);
-        entity.setRegisteredByKeycloakId(loggedUser.getKeycloakId());
-        UserEntity saved;
-        try {
-            saved = userRepository.save(tenant, entity);
-            // Grava já: um CPF ou telefone repetido só era recusado pelo banco no fim da
-            // transação, tarde demais para desfazer a conta criada no Keycloak.
-            em.flush();
-        } catch (RuntimeException e) {
-            // Sem isto ficava uma conta órfã no Keycloak, e o CPF nunca mais podia ser cadastrado.
-            try {
-                keycloakService.deleteUser(tenant, UUID.fromString(userId));
-            } catch (RuntimeException ignored) {
-                // o erro que interessa a quem está cadastrando é o original
-            }
-            throw e;
-        }
-        UserEntity result = userRepository.findById(tenant, saved.getId());
-        result.setTemporaryPassword(temporaryPassword);
-        return result;
+        return accounts.create(tenant, entity, roles, loggedUser.getKeycloakId(),
+                user -> userRepository.findById(tenant, userRepository.save(tenant, user).getId()));
     }
 
     @Override
@@ -97,7 +74,7 @@ public class UserUseCaseImpl implements UserUseCase {
         if (user.getId().equals(loggedUser.getId())) {
             throw core.error.BusinessException.invalid("Para trocar a sua própria senha, use \"Esqueci minha senha\" na tela de entrada.");
         }
-        return keycloakService.resetTemporaryPassword(tenant, user.getKeycloakId(), user.getEmail());
+        return accounts.resetPassword(tenant, user);
     }
 
     private UserEntity findByCpf(String tenant, String cpf) {
@@ -143,7 +120,7 @@ public class UserUseCaseImpl implements UserUseCase {
             original.setCpf(entity.getCpf());
             original.setUserType(entity.getUserType());
             UserEntity saved = userRepository.update(tenant, original);
-            keycloakService.updateUser(tenant, original.getKeycloakId(), saved, roles);
+            accounts.sync(tenant, saved, roles);
             return userRepository.findById(tenant, saved.getId());
         } else if (loggedUser.getUserType() == UserType.PROFISSIONAL) {
             boolean self = original.getId().equals(loggedUser.getId());
@@ -198,7 +175,7 @@ public class UserUseCaseImpl implements UserUseCase {
         records.requireDisposable(tenant, id);
         if (loggedUser.getUserType() == UserType.ADMINISTRADOR) {
             userRepository.delete(tenant, id);
-            keycloakService.deleteUser(tenant, UUID.fromString(user.getKeycloakId()));
+            accounts.remove(tenant, user);
             // Sem este retorno a exclusão caía no "sem permissão" do fim do método: a conta já
             // tinha sido apagada no Keycloak, mas o cadastro voltava e o administrador via um erro.
             return;
@@ -212,7 +189,7 @@ public class UserUseCaseImpl implements UserUseCase {
                 }
                 userRepository.delete(tenant, id);
                 // A conta de acesso sai junto: se ficasse, o CPF nunca mais poderia ser cadastrado.
-                keycloakService.deleteUser(tenant, UUID.fromString(user.getKeycloakId()));
+                accounts.remove(tenant, user);
                 return;
             }
             throw new SecurityException("Profissional só pode gerenciar a sí mesmo e seus pacientes.");
@@ -234,7 +211,7 @@ public class UserUseCaseImpl implements UserUseCase {
 
     @Override
     public UserEntity findByKeycloakId(String tenant, String keycloakId) {
-        UserEntity user = keycloakService.findByKeycloakId(tenant, keycloakId);
+        UserEntity user = accounts.findByKeycloakId(tenant, keycloakId, UserEntity.class);
         String photo = access.photo(tenant, user.getId());
         if (!photo.isEmpty()) user.setProfileImage(photo);
         return user;
